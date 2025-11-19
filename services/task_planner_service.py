@@ -18,6 +18,7 @@ class TaskPlannerService:
             project=Config.PROJECT_ID,
             location=Config.LOCATION,
             temperature=0.7,  # Task 생성은 더 구조화된 답변이 필요
+            model_kwargs={"thinking_budget": 0}  # Think budget을 0으로 설정하여 빠른 응답
         )
     
     def get_first_session_prompt(self) -> str:

@@ -17,6 +17,7 @@ class SupervisorService:
             project=Config.PROJECT_ID,
             location=Config.LOCATION,
             temperature=0.5,  # 평가는 객관적이어야 함
+            model_kwargs={"thinking_budget": 0}  # Think budget을 0으로 설정하여 빠른 응답
         )
     
     def get_system_prompt(self) -> str:

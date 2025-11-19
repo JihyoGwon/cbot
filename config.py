@@ -42,4 +42,5 @@ class Config:
     
     # 상담 에이전트 설정
     SUPERVISION_INTERVAL = int(os.getenv('SUPERVISION_INTERVAL', 3))  # N개 메시지마다 supervision
+    TASK_UPDATE_INTERVAL = int(os.getenv('TASK_UPDATE_INTERVAL', 3))  # N개 메시지마다 task 업데이트
 

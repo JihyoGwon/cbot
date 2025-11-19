@@ -1,9 +1,15 @@
 """Flask 메인 애플리케이션"""
+import logging
 from flask import Flask, request, jsonify, render_template
 from flask_session import Session
 from services.counselor_service import CounselorService
 from services.firestore_service import FirestoreService
 from config import Config
+
+# Flask 앱 로깅 설정
+logging.basicConfig(level=logging.INFO)
+app_logger = logging.getLogger('werkzeug')
+app_logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
 app.config.from_object(Config)
