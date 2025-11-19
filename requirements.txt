@@ -1,0 +1,31 @@
+Flask==3.0.3
+Flask-Session==0.6.0
+# gunicorn==20.1.0  # For UNIX-like systems (Linux/Mac), not used on Windows for development.
+python-dotenv==1.0.1
+
+# Google Cloud
+google-cloud-aiplatform==1.97.0
+google-cloud-firestore==2.16.0
+google-api-core==2.19.0
+firebase-admin==6.5.0
+
+# Langchain & RAG - (Let pip resolve versions)
+langchain
+langchain-core
+langchain-community
+langgraph
+langchain-google-vertexai
+langchain-google-community
+langchain-huggingface
+langchain-chroma
+langchain-text-splitters
+langgraph-checkpoint
+langgraph-prebuilt
+
+# Other dependencies
+gunicorn==22.0.0
+langsmith
+chromadb
+sentence-transformers==3.0.1
+unstructured[md]
+psutil 
