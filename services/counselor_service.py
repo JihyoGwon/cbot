@@ -235,6 +235,7 @@ class CounselorService:
             
             # Task Selector 실행 (Task 완료 시에만)
             task_selection = None
+            task_selector_output = None
             if task_completed:
                 t0 = time.time()
                 # 현재 Part의 Task만 선택
@@ -244,6 +245,8 @@ class CounselorService:
                     part_tasks,
                     current_part
                 )
+                if task_selection:
+                    task_selector_output = task_selection.get('raw_output', '')
                 timing_log['task_select'] = time.time() - t0
                 
                 if task_selection:
@@ -412,7 +415,8 @@ class CounselorService:
                 "current_module": current_module_id,
                 "supervision": supervision_result,
                 "timing": timing_log,
-                "prompt": full_prompt
+                "prompt": full_prompt,
+                "task_selector_output": task_selector_output  # Task Selector 원본 출력 추가
             }
         
         except Exception as e:

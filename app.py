@@ -76,7 +76,8 @@ def chat(conversation_id):
             'prompt': result.get('prompt', ''),
             'current_task': result.get('current_task'),
             'current_part': result.get('current_part', 1),
-            'current_module': result.get('current_module')
+            'current_module': result.get('current_module'),
+            'task_selector_output': result.get('task_selector_output')  # Task Selector 출력 추가
         }
         
         # Supervision 결과가 있으면 메타데이터에 포함
@@ -213,7 +214,8 @@ def get_message_prompt(conversation_id, message_index):
                 'prompt': prompt,
                 'current_task': metadata.get('current_task'),
                 'current_part': metadata.get('current_part', 1),
-                'current_module': metadata.get('current_module')
+                'current_module': metadata.get('current_module'),
+                'task_selector_output': metadata.get('task_selector_output')  # Task Selector 출력 추가
             }
             
             # Supervision 정보가 있으면 포함

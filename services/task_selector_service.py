@@ -118,7 +118,8 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질�
             if selected_task:
                 return {
                     "task": selected_task,
-                    "execution_guide": execution_guide or selected_task.get('target', '')
+                    "execution_guide": execution_guide or selected_task.get('target', ''),
+                    "raw_output": response_text  # 원본 LLM 응답 추가
                 }
             else:
                 # 선택 실패 시 상태와 우선순위 기반으로 선택
@@ -142,7 +143,8 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질�
             
             return {
                 "task": task,
-                "execution_guide": task.get('target', '')
+                "execution_guide": task.get('target', ''),
+                "raw_output": response_text  # 원본 LLM 응답 추가
             }
             
         except Exception as e:
@@ -152,7 +154,8 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질�
                 task = selectable_tasks[0]
                 return {
                     "task": task,
-                    "execution_guide": task.get('target', '')
+                    "execution_guide": task.get('target', ''),
+                    "raw_output": "오류 발생: " + str(e)
                 }
             return None
 

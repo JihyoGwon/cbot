@@ -214,25 +214,31 @@ async function showPrompt(messageIndex) {
         const response = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/messages/${messageIndex}/prompt`);
         
         if (!response.ok) {
-            const errorData = await response.json();
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                errorData = { error: '프롬프트를 가져올 수 없습니다.' };
+            }
             alert(errorData.error || '프롬프트를 가져올 수 없습니다.');
             return;
         }
         
         const data = await response.json();
         const prompt = data.prompt || '프롬프트 정보가 없습니다.';
+        const taskSelectorOutput = data.task_selector_output || null;
         
         // 모달 창으로 프롬프트 표시
-        showPromptModal(prompt, data.current_task, data.current_part, data.current_module, data.supervision);
+        showPromptModal(prompt, data.current_task, data.current_part, data.current_module, data.supervision, taskSelectorOutput);
         
     } catch (error) {
         console.error('프롬프트 가져오기 오류:', error);
-        alert('프롬프트를 가져오는 중 오류가 발생했습니다.');
+        alert('프롬프트를 가져오는 중 오류가 발생했습니다: ' + (error.message || String(error)));
     }
 }
 
 // 프롬프트 모달 표시
-function showPromptModal(prompt, currentTask, currentPart, currentModule, supervision) {
+function showPromptModal(prompt, currentTask, currentPart, currentModule, supervision, taskSelectorOutput) {
     // 기존 모달이 있으면 제거
     const existingModal = document.getElementById('prompt-modal');
     if (existingModal) {
@@ -242,7 +248,7 @@ function showPromptModal(prompt, currentTask, currentPart, currentModule, superv
     // 모달 생성
     const modal = document.createElement('div');
     modal.id = 'prompt-modal';
-    modal.className = 'prompt-modal';
+    modal.className = 'prompt-modal show';
     
     const modalContent = document.createElement('div');
     modalContent.className = 'prompt-modal-content';
@@ -271,12 +277,38 @@ function showPromptModal(prompt, currentTask, currentPart, currentModule, superv
     
     info.innerHTML = infoHtml;
     
-    const promptText = document.createElement('div');
-    promptText.className = 'prompt-text';
-    promptText.textContent = prompt;
+    const body = document.createElement('div');
+    body.className = 'prompt-modal-body';
     
-    modalContent.appendChild(header);
-    modalContent.appendChild(info);
+    body.appendChild(info);
+    
+    // Task Selector 출력 섹션 추가
+    if (taskSelectorOutput && typeof taskSelectorOutput === 'string' && taskSelectorOutput.trim()) {
+        const taskSelectorSection = document.createElement('div');
+        taskSelectorSection.className = 'prompt-modal-section';
+        taskSelectorSection.innerHTML = `
+            <div class="supervision-section-header">
+                <h4>Task Selector 출력</h4>
+            </div>
+            <div class="prompt-text" style="margin-top: 12px; font-family: 'Courier New', monospace;">
+                ${String(taskSelectorOutput).replace(/\n/g, '<br>')}
+            </div>
+        `;
+        body.appendChild(taskSelectorSection);
+    }
+    
+    // 메인 상담사 프롬프트 섹션
+    const promptSection = document.createElement('div');
+    promptSection.className = 'prompt-modal-section';
+    promptSection.innerHTML = `
+        <div class="supervision-section-header">
+            <h4>메인 상담사 프롬프트</h4>
+        </div>
+        <div class="prompt-text" style="margin-top: 12px;">
+            ${String(prompt).replace(/\n/g, '<br>')}
+        </div>
+    `;
+    body.appendChild(promptSection);
     
     // Supervision 피드백 섹션 추가
     if (supervision) {
@@ -305,10 +337,11 @@ function showPromptModal(prompt, currentTask, currentPart, currentModule, superv
         }
         
         supervisionSection.innerHTML = supervisionHtml;
-        modalContent.appendChild(supervisionSection);
+        body.appendChild(supervisionSection);
     }
     
-    modalContent.appendChild(promptText);
+    modalContent.appendChild(header);
+    modalContent.appendChild(body);
     modal.appendChild(modalContent);
     
     document.body.appendChild(modal);

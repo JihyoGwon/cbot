@@ -654,6 +654,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
 .prompt-modal-header {
@@ -663,6 +664,26 @@ body {
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+}
+
+.prompt-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.prompt-modal-close:hover {
+    background: var(--bg-light);
+    color: var(--text-primary);
 }
 
 .prompt-modal-header h3 {
@@ -688,6 +709,14 @@ body {
     padding: 16px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
+}
+
+.prompt-modal-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
 }
 
 .prompt-modal-supervision {

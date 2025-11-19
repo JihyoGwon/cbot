@@ -27,7 +27,7 @@ class TaskCompletionCheckerService:
 **Task 완료 판단 기준:**
 1. 명시적 완료 신호: 사용자나 상담사가 Task 목표를 달성했다고 명시
 2. Task 목표 달성: completion_criteria가 충족되었는지 확인
-3. 충분히 다뤘음: Task 목표가 충분히 달성되었는지 판단
+3. 충분히 다뤘음: 사용자의 문제를 더 깊이 다룰 준비가 되었음
 
 **응답 형식:**
 IS_COMPLETED: [True|False]

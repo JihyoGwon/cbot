@@ -66,17 +66,6 @@ Task 생성 시 고려사항:
                     "status": "pending"
                 },
                 {
-                    "id": "task_info_1",
-                    "part": 1,
-                    "priority": "high",
-                    "title": "사용자의 이름과 상담 목적 파악하기",
-                    "description": "사용자의 이름과 이번 상담을 찾게 된 이유를 자연스럽게 물어보기",
-                    "target": "사용자의 이름과 기본 상담 목적 확인",
-                    "completion_criteria": "사용자가 이름과 상담 목적을 말했을 때 완료",
-                    "restrictions": "이 단계에서는 해결책을 제시하지 말고, 오직 정보를 듣는 것에만 집중하세요.",
-                    "status": "pending"
-                },
-                {
                     "id": "task_rapport_2",
                     "part": 1,
                     "priority": "medium",
