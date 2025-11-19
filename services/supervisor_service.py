@@ -16,23 +16,40 @@ class SupervisorService:
             model_name=Config.VERTEX_AI_MODEL,
             project=Config.PROJECT_ID,
             location=Config.LOCATION,
-            temperature=0.5,  # 평가는 객관적이어야 함
+            temperature=0.3,  # 평가는 더 엄격하고 객관적으로
+            max_output_tokens=400,  # 충분한 피드백을 위해
             model_kwargs={"thinking_budget": 0}  # Think budget을 0으로 설정하여 빠른 응답
         )
     
     def get_system_prompt(self) -> str:
         """Supervisor 시스템 프롬프트"""
-        return """당신은 전문 상담 수퍼바이저입니다. 메인 상담사의 응답을 평가하고 피드백을 제공하세요.
+        return """당신은 엄격하고 객관적인 상담 수퍼바이저입니다. 메인 상담사의 응답을 비판적으로 평가하고 구체적인 피드백을 제공하세요.
 
-평가 기준:
-1. **공감 수준**: 사용자의 감정을 얼마나 잘 이해하고 공감했는가?
-2. **적절한 질문**: 상황에 맞는 질문을 던졌는가?
-3. **비판/판단 회피**: 사용자를 비판하거나 판단하지 않았는가?
-4. **구체적 조언**: 추상적이지 않고 실용적인 조언을 제공했는가?
-5. **반말 사용**: 친근하고 편안한 반말을 사용했는가?
-6. **Task 준수**: 현재 task의 목표를 달성하려고 노력했는가?
+**중요: 긍정적인 피드백만 하지 마세요. 문제점을 찾아서 지적하세요.**
 
-피드백은 건설적이고 구체적으로 제공하세요."""
+평가 기준 (각 항목을 엄격하게 평가):
+1. **공감 수준**: 사용자의 감정을 정확히 파악하고 공감했는가? (표면적 공감이 아닌 깊은 이해)
+2. **적절한 질문**: 상황에 맞는 질문을 던졌는가? (불필요한 질문이나 부적절한 질문은 감점)
+3. **비판/판단 회피**: 사용자를 비판하거나 판단하지 않았는가? (은연중의 판단도 지적)
+4. **구체적 조언**: 추상적이지 않고 실용적인 조언을 제공했는가? (모호한 조언은 감점)
+5. **반말 사용**: 친근하고 편안한 반말을 사용했는가? (존댓말 사용 시 감점)
+6. **Task 준수**: 현재 task의 목표를 달성하려고 노력했는가? (task를 무시하거나 벗어났다면 감점)
+7. **정보 수집 단계 준수**: 정보 수집 task인데 해결책을 제시했다면 감점
+8. **응답 길이**: 간결한가? (너무 길면 감점)
+
+**점수 기준:**
+- 9-10점: 거의 완벽, 모든 기준을 충족
+- 7-8점: 양호하지만 개선 여지 있음
+- 5-6점: 보통, 여러 문제점 존재
+- 3-4점: 부족, 중요한 문제점 다수
+- 1-2점: 매우 부족, 전면적 개선 필요
+
+**피드백 작성 원칙:**
+1. 잘한 점보다 개선할 점에 집중하세요
+2. 구체적인 예시를 들어 지적하세요 (예: "~라는 표현이 판단적으로 들릴 수 있음")
+3. 실제로 문제가 없을 때만 긍정적 피드백을 하세요
+4. 개선점이 없으면 "개선할 점 없음"이라고 명시하세요
+5. Task를 제대로 수행하지 않았다면 반드시 지적하세요"""
     
     def evaluate_response(self, user_message: str, counselor_response: str,
                          current_task: Optional[Dict], conversation_history: List[Dict]) -> Dict:
@@ -59,22 +76,38 @@ class SupervisorService:
             if current_task:
                 task_info = f"\n현재 task: {current_task.get('title')} - {current_task.get('description')}"
             
+            # Task의 제약사항 확인
+            task_restrictions = ""
+            if current_task:
+                restrictions = current_task.get('restrictions', '')
+                if restrictions:
+                    task_restrictions = f"\n**Task 제약사항**: {restrictions}"
+            
             prompt = f"""다음은 상담 대화입니다.
 
 대화 맥락:
 {recent_context}
-{task_info}
+{task_info}{task_restrictions}
 
 사용자: {user_message}
 상담사: {counselor_response}
 
-상담사의 응답을 평가하고 피드백을 제공하세요.
+상담사의 응답을 엄격하게 평가하세요. 문제점을 찾아서 지적하세요.
+
+**평가 시 확인할 사항:**
+1. Task의 목표를 달성했는가?
+2. Task 제약사항을 위반하지 않았는가? (예: 정보 수집 단계에서 해결책 제시 금지)
+3. 사용자의 감정을 정확히 이해했는가?
+4. 적절한 질문을 던졌는가?
+5. 비판적이거나 판단적인 표현은 없는가?
+6. 응답이 간결한가? (너무 길면 감점)
+7. 구체적이고 실용적인가?
 
 다음 형식으로 응답하세요:
-SCORE: [1-10점]
-STRENGTHS: [잘한 점들]
-IMPROVEMENTS: [개선할 점들]
-FEEDBACK: [구체적인 피드백]"""
+SCORE: [1-10점] (엄격하게 평가, 평균은 6-7점 정도)
+STRENGTHS: [잘한 점들 - 없으면 "없음"이라고 명시]
+IMPROVEMENTS: [개선할 점들 - 반드시 구체적으로 제시, 없으면 "없음"이라고 명시]
+FEEDBACK: [구체적인 피드백 - 문제점이 있으면 반드시 지적하고, 어떻게 개선할지 제시]"""
 
             messages = [
                 ('system', self.get_system_prompt()),
@@ -85,7 +118,7 @@ FEEDBACK: [구체적인 피드백]"""
             response_text = response.content if hasattr(response, 'content') else str(response)
             
             # 응답 파싱
-            score = 7  # 기본값
+            score = 6  # 기본값을 6으로 낮춤 (더 엄격한 평가)
             strengths = ""
             improvements = ""
             feedback = ""
@@ -93,20 +126,24 @@ FEEDBACK: [구체적인 피드백]"""
             current_section = None
             for line in response_text.split('\n'):
                 line = line.strip()
-                if 'SCORE:' in line:
+                if 'SCORE:' in line.upper():
                     try:
-                        score = int(line.split('SCORE:')[1].strip().split()[0])
+                        score_text = line.split('SCORE:')[1] if 'SCORE:' in line else line.split('score:')[1]
+                        score = int(score_text.strip().split()[0])
                     except:
                         pass
-                elif 'STRENGTHS:' in line:
+                elif 'STRENGTHS:' in line.upper():
                     current_section = 'strengths'
-                    strengths = line.split('STRENGTHS:')[1].strip()
-                elif 'IMPROVEMENTS:' in line:
+                    strengths = line.split('STRENGTHS:')[1] if 'STRENGTHS:' in line else line.split('strengths:')[1]
+                    strengths = strengths.strip()
+                elif 'IMPROVEMENTS:' in line.upper():
                     current_section = 'improvements'
-                    improvements = line.split('IMPROVEMENTS:')[1].strip()
-                elif 'FEEDBACK:' in line:
+                    improvements = line.split('IMPROVEMENTS:')[1] if 'IMPROVEMENTS:' in line else line.split('improvements:')[1]
+                    improvements = improvements.strip()
+                elif 'FEEDBACK:' in line.upper():
                     current_section = 'feedback'
-                    feedback = line.split('FEEDBACK:')[1].strip()
+                    feedback = line.split('FEEDBACK:')[1] if 'FEEDBACK:' in line else line.split('feedback:')[1]
+                    feedback = feedback.strip()
                 elif current_section and line:
                     if current_section == 'strengths':
                         strengths += " " + line
@@ -115,11 +152,20 @@ FEEDBACK: [구체적인 피드백]"""
                     elif current_section == 'feedback':
                         feedback += " " + line
             
+            # 피드백이 비어있으면 improvements와 strengths를 조합
+            if not feedback.strip():
+                if improvements.strip():
+                    feedback = f"개선 필요: {improvements.strip()}"
+                elif strengths.strip() and strengths.strip().lower() != '없음':
+                    feedback = f"잘한 점: {strengths.strip()}"
+                else:
+                    feedback = response_text[:300]  # 원본 응답의 일부 사용
+            
             return {
                 "score": score,
-                "strengths": strengths.strip(),
-                "improvements": improvements.strip(),
-                "feedback": feedback.strip() or response_text,
+                "strengths": strengths.strip() or "없음",
+                "improvements": improvements.strip() or "없음",
+                "feedback": feedback.strip() or response_text[:300],
                 "needs_improvement": score < 7
             }
             

@@ -475,6 +475,30 @@ body {
     font-size: 12px;
     color: #666;
     line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    margin-top: 8px;
+}
+
+.supervision-improvements {
+    font-size: 11px;
+    color: #d32f2f;
+    margin-top: 6px;
+    padding: 6px;
+    background: #ffebee;
+    border-radius: 4px;
+    border-left: 3px solid #d32f2f;
+}
+
+.supervision-strengths {
+    font-size: 11px;
+    color: #388e3c;
+    margin-top: 6px;
+    padding: 6px;
+    background: #e8f5e9;
+    border-radius: 4px;
+    border-left: 3px solid #388e3c;
 }
 
 /* 반응형 디자인 */
@@ -581,6 +605,23 @@ body {
     color: #666;
     display: flex;
     gap: 20px;
+    flex-wrap: wrap;
+}
+
+.supervision-info {
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.supervision-info.good {
+    color: #388e3c;
+    background: #e8f5e9;
+}
+
+.supervision-info.needs-improvement {
+    color: #d32f2f;
+    background: #ffebee;
 }
 
 .prompt-modal-text {
@@ -594,6 +635,81 @@ body {
     word-wrap: break-word;
     flex: 1;
     margin: 0;
+}
+
+/* 프롬프트 모달의 Supervision 섹션 */
+.prompt-modal-supervision {
+    padding: 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.supervision-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.supervision-section-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.supervision-score-badge {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.supervision-score-badge.good {
+    color: #388e3c;
+    background: #e8f5e9;
+}
+
+.supervision-score-badge.needs-improvement {
+    color: #d32f2f;
+    background: #ffebee;
+}
+
+.supervision-feedback-text {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.supervision-improvements-text {
+    font-size: 12px;
+    color: #d32f2f;
+    margin-top: 10px;
+    padding: 10px;
+    background: #ffebee;
+    border-radius: 6px;
+    border-left: 4px solid #d32f2f;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.supervision-strengths-text {
+    font-size: 12px;
+    color: #388e3c;
+    margin-top: 10px;
+    padding: 10px;
+    background: #e8f5e9;
+    border-radius: 6px;
+    border-left: 4px solid #388e3c;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .message.assistant .message-content:hover {

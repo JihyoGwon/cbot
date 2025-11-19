@@ -77,6 +77,17 @@ def chat(conversation_id):
             'current_task': result.get('current_task'),
             'tasks_remaining': result.get('tasks_remaining', 0)
         }
+        
+        # Supervision 결과가 있으면 메타데이터에 포함
+        if result.get('supervision'):
+            prompt_metadata['supervision'] = {
+                'score': result['supervision'].get('score', 0),
+                'feedback': result['supervision'].get('feedback', ''),
+                'improvements': result['supervision'].get('improvements', ''),
+                'strengths': result['supervision'].get('strengths', ''),
+                'needs_improvement': result['supervision'].get('needs_improvement', False)
+            }
+        
         firestore_service.add_message(
             conversation_id, 
             'assistant', 
@@ -205,12 +216,21 @@ def get_message_prompt(conversation_id, message_index):
         
         # assistant 메시지이고 metadata가 있는 경우만 프롬프트 반환
         if message.get('role') == 'assistant' and message.get('metadata'):
-            prompt = message.get('metadata', {}).get('prompt', '')
-            return jsonify({
+            metadata = message.get('metadata', {})
+            prompt = metadata.get('prompt', '')
+            supervision = metadata.get('supervision')
+            
+            response_data = {
                 'prompt': prompt,
-                'current_task': message.get('metadata', {}).get('current_task'),
-                'tasks_remaining': message.get('metadata', {}).get('tasks_remaining', 0)
-            }), 200
+                'current_task': metadata.get('current_task'),
+                'tasks_remaining': metadata.get('tasks_remaining', 0)
+            }
+            
+            # Supervision 정보가 있으면 포함
+            if supervision:
+                response_data['supervision'] = supervision
+            
+            return jsonify(response_data), 200
         else:
             return jsonify({'error': '이 메시지에는 프롬프트 정보가 없습니다.'}), 404
         

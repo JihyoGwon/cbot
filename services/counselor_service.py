@@ -83,9 +83,46 @@ class CounselorService:
         self.executor = ThreadPoolExecutor(max_workers=3)
     
     def get_counselor_prompt(self, current_task: Optional[Dict] = None, 
-                            execution_guide: str = "", module_id: Optional[str] = None) -> str:
+                            execution_guide: str = "", module_id: Optional[str] = None,
+                            recent_supervision: Optional[Dict] = None) -> str:
         """메인 상담사 시스템 프롬프트"""
         base_prompt = Config.SYSTEM_PROMPT
+        
+        # Supervision 피드백 추가
+        supervision_guidance = ""
+        if recent_supervision:
+            score = recent_supervision.get('score', 0)
+            feedback = recent_supervision.get('feedback', '')
+            improvements = recent_supervision.get('improvements', '')
+            strengths = recent_supervision.get('strengths', '')
+            
+            if score < 7 or recent_supervision.get('needs_improvement', False):
+                supervision_guidance = f"""
+
+=== Supervision 피드백 (개선 필요) ===
+점수: {score}/10
+피드백: {feedback}
+"""
+                if improvements and improvements != '없음':
+                    supervision_guidance += f"개선점: {improvements}\n"
+                if strengths and strengths != '없음':
+                    supervision_guidance += f"잘한 점: {strengths}\n"
+                supervision_guidance += "\n위 피드백을 참고하여 응답을 개선하세요."
+            elif feedback:
+                supervision_guidance = f"""
+
+=== Supervision 피드백 ===
+점수: {score}/10
+피드백: {feedback}
+"""
+                if improvements and improvements != '없음':
+                    supervision_guidance += f"개선점: {improvements}\n"
+                if strengths and strengths != '없음':
+                    supervision_guidance += f"잘한 점: {strengths}\n"
+                supervision_guidance += "\n위 피드백을 참고하여 계속 좋은 상담을 진행하세요."
+        else:
+            # Supervision 피드백이 없을 때도 명시적으로 표시 (디버깅용)
+            supervision_guidance = "\n\n=== Supervision 피드백: 없음 (아직 평가되지 않음) ==="
         
         if current_task:
             # Module 가이드라인 가져오기
@@ -110,9 +147,9 @@ class CounselorService:
             
             task_guidance += "\n위 task를 달성하기 위해 대화를 진행하세요. 자연스럽게 task를 수행하면서 사용자와의 대화를 이어가세요."
             
-            return base_prompt + task_guidance
+            return base_prompt + supervision_guidance + task_guidance
         
-        return base_prompt
+        return base_prompt + supervision_guidance
     
     def chat(self, conversation_id: str, message: str, 
              conversation_history: Optional[List[Dict]] = None) -> Dict:
@@ -147,6 +184,31 @@ class CounselorService:
             current_tasks = session.get('tasks', [])
             completed_tasks = session.get('completed_tasks', [])
             message_count = session.get('message_count', 0) + 1
+            
+            # 최근 Supervision 피드백 가져오기 (이전 메시지의 Supervision을 찾기)
+            supervision_log = session.get('supervision_log', [])
+            recent_supervision = None
+            
+            # 현재 메시지 카운트보다 작거나 같은 메시지 인덱스의 Supervision 중 가장 최근 것 찾기
+            # (현재 메시지의 Supervision은 아직 실행 중이거나 완료되지 않았을 수 있음)
+            for log_entry in reversed(supervision_log):
+                log_message_index = log_entry.get('message_index', -1)
+                # 이전 메시지의 Supervision만 사용 (현재 메시지보다 작은 인덱스)
+                if log_message_index < message_count:
+                    recent_supervision = log_entry
+                    break
+            
+            # 디버깅: Supervision 피드백 상태 로깅
+            if recent_supervision:
+                logger.info(f"[SUPERVISION] conversation_id={conversation_id[:8]}... | "
+                           f"message_count={message_count} | "
+                           f"supervision_message_index={recent_supervision.get('message_index', 'N/A')} | "
+                           f"score={recent_supervision.get('score', 'N/A')} | "
+                           f"has_feedback={bool(recent_supervision.get('feedback'))}")
+            else:
+                logger.info(f"[SUPERVISION] conversation_id={conversation_id[:8]}... | "
+                           f"message_count={message_count} | "
+                           f"no_recent_supervision (log_length={len(supervision_log)})")
             
             # Task 업데이트는 주기적으로만 실행 (성능 최적화)
             should_update_tasks = (
@@ -215,7 +277,12 @@ class CounselorService:
             module_id = task_selection.get('module_id') if task_selection else None
             
             messages = []
-            messages.append(('system', self.get_counselor_prompt(current_task, execution_guide, module_id)))
+            messages.append(('system', self.get_counselor_prompt(
+                current_task, 
+                execution_guide, 
+                module_id,
+                recent_supervision
+            )))
             
             # 대화 기록 추가
             if conversation_history:
@@ -230,6 +297,10 @@ class CounselorService:
             
             # LLM 호출 (메인 응답)
             counselor_start = time.time()
+            
+            # 프롬프트 구성 (나중에 저장하기 위해)
+            full_prompt = self._format_messages_for_display(messages)
+            
             response = self.llm.invoke(messages)
             counselor_response = response.content if hasattr(response, 'content') else str(response)
             timing_log['counselor_llm'] = time.time() - counselor_start
@@ -237,10 +308,10 @@ class CounselorService:
             # Supervision은 백그라운드에서 비동기 실행 (응답은 먼저 반환)
             supervision_result = None
             if message_count % self.supervision_interval == 0:
-                # 백그라운드에서 실행
+                # 백그라운드에서 실행 (메시지 인덱스 전달)
                 threading.Thread(
                     target=self._run_supervision_async,
-                    args=(conversation_id, message, counselor_response, current_task, conversation_history),
+                    args=(conversation_id, message, counselor_response, current_task, conversation_history, message_count),
                     daemon=True
                 ).start()
             
@@ -279,7 +350,8 @@ class CounselorService:
                 "current_task": current_task.get('id') if current_task else None,
                 "supervision": supervision_result,
                 "tasks_remaining": len(pending_tasks),
-                "timing": timing_log  # 디버깅용
+                "timing": timing_log,  # 디버깅용
+                "prompt": full_prompt  # 프롬프트 전문
             }
             
         except Exception as e:
@@ -300,13 +372,25 @@ class CounselorService:
         elapsed = time.time() - start_time
         return result, elapsed, 'select'
     
-    def _get_or_create_session(self, conversation_id: str) -> Dict:
-        """세션 가져오기 또는 생성 (캐시 사용)"""
-        # 캐시 확인
-        if conversation_id in self.session_cache:
-            return self.session_cache[conversation_id]
+    def _format_messages_for_display(self, messages: List) -> str:
+        """메시지 리스트를 프롬프트 문자열로 변환"""
+        prompt_parts = []
+        for msg in messages:
+            role = msg[0] if isinstance(msg, tuple) else msg.get('role', 'unknown')
+            content = msg[1] if isinstance(msg, tuple) else msg.get('content', '')
+            
+            if role == 'system':
+                prompt_parts.append(f"=== SYSTEM PROMPT ===\n{content}\n")
+            elif role == 'user':
+                prompt_parts.append(f"=== USER ===\n{content}\n")
+            elif role == 'assistant':
+                prompt_parts.append(f"=== ASSISTANT ===\n{content}\n")
         
-        # Firestore에서 가져오기
+        return "\n".join(prompt_parts)
+    
+    def _get_or_create_session(self, conversation_id: str) -> Dict:
+        """세션 가져오기 또는 생성 (캐시 사용, 하지만 Supervision 로그는 항상 최신 확인)"""
+        # Firestore에서 최신 세션 가져오기 (Supervision 로그가 최신인지 확인하기 위해)
         session = self.session_service.get_session(conversation_id)
         
         if not session:
@@ -320,13 +404,23 @@ class CounselorService:
             self.session_service.update_tasks(conversation_id, initial_tasks)
             session['tasks'] = initial_tasks
         
+        # 캐시가 있으면 tasks 등은 캐시에서 가져오되, supervision_log는 최신으로 업데이트
+        if conversation_id in self.session_cache:
+            cached_session = self.session_cache[conversation_id]
+            # Supervision 로그는 항상 최신 것으로 업데이트
+            session['supervision_log'] = session.get('supervision_log', [])
+            # 캐시의 다른 정보는 유지하되 supervision_log는 최신으로
+            cached_session['supervision_log'] = session['supervision_log']
+            self.session_cache[conversation_id] = cached_session
+            return cached_session
+        
         # 캐시에 저장
         self.session_cache[conversation_id] = session
         return session
     
     def _run_supervision_async(self, conversation_id: str, message: str, 
                               counselor_response: str, current_task: Optional[Dict],
-                              conversation_history: List[Dict]) -> None:
+                              conversation_history: List[Dict], message_index: int) -> None:
         """Supervision을 백그라운드에서 비동기 실행"""
         try:
             supervision_result = self.supervisor.evaluate_response(
@@ -336,13 +430,36 @@ class CounselorService:
                 conversation_history
             )
             
-            # Supervision 로그 저장
-            self.session_service.add_supervision_log(conversation_id, {
+            # Supervision 로그 저장 (모든 필드 포함, 메시지 인덱스 포함)
+            supervision_log_entry = {
+                "message_index": message_index,  # 어떤 메시지에 대한 Supervision인지 저장
                 "user_message": message[:200],
                 "counselor_response": counselor_response[:200],
-                "score": supervision_result['score'],
-                "feedback": supervision_result['feedback']
-            })
+                "score": supervision_result.get('score', 0),
+                "feedback": supervision_result.get('feedback', ''),
+                "improvements": supervision_result.get('improvements', ''),
+                "strengths": supervision_result.get('strengths', ''),
+                "needs_improvement": supervision_result.get('needs_improvement', False)
+            }
+            
+            self.session_service.add_supervision_log(conversation_id, supervision_log_entry)
+            
+            # 캐시 업데이트 (다음 요청에서 Supervision 피드백이 반영되도록)
+            if conversation_id in self.session_cache:
+                session = self.session_cache[conversation_id]
+                supervision_log = session.get('supervision_log', [])
+                supervision_log.append({
+                    **supervision_log_entry,
+                    "timestamp": datetime.now().isoformat()
+                })
+                session['supervision_log'] = supervision_log
+                self.session_cache[conversation_id] = session
+            
+            logger.info(f"[SUPERVISION] conversation_id={conversation_id[:8]}... | "
+                       f"score={supervision_log_entry['score']} | "
+                       f"feedback_saved=True")
         except Exception as e:
+            logger.error(f"[SUPERVISION ERROR] conversation_id={conversation_id[:8]}... | "
+                        f"error={str(e)}")
             print(f"Supervision 실행 오류: {str(e)}")
 

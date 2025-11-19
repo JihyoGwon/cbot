@@ -221,7 +221,7 @@ async function showPrompt(messageIndex) {
         const prompt = data.prompt || '프롬프트 정보가 없습니다.';
         
         // 모달 창으로 프롬프트 표시
-        showPromptModal(prompt, data.current_task, data.tasks_remaining);
+        showPromptModal(prompt, data.current_task, data.tasks_remaining, data.supervision);
         
     } catch (error) {
         console.error('프롬프트 가져오기 오류:', error);
@@ -230,7 +230,7 @@ async function showPrompt(messageIndex) {
 }
 
 // 프롬프트 모달 표시
-function showPromptModal(prompt, currentTask, tasksRemaining) {
+function showPromptModal(prompt, currentTask, tasksRemaining, supervision) {
     // 기존 모달이 있으면 제거
     const existingModal = document.getElementById('prompt-modal');
     if (existingModal) {
@@ -254,10 +254,19 @@ function showPromptModal(prompt, currentTask, tasksRemaining) {
     
     const info = document.createElement('div');
     info.className = 'prompt-modal-info';
-    info.innerHTML = `
+    let infoHtml = `
         <div>현재 Task: ${currentTask || 'N/A'}</div>
         <div>남은 Tasks: ${tasksRemaining || 0}</div>
     `;
+    
+    // Supervision 정보 추가
+    if (supervision) {
+        const score = supervision.score || 0;
+        const isGood = score >= 7;
+        infoHtml += `<div class="supervision-info ${isGood ? 'good' : 'needs-improvement'}">Supervision 점수: ${score}/10</div>`;
+    }
+    
+    info.innerHTML = infoHtml;
     
     const promptText = document.createElement('pre');
     promptText.className = 'prompt-modal-text';
@@ -265,6 +274,37 @@ function showPromptModal(prompt, currentTask, tasksRemaining) {
     
     modalContent.appendChild(header);
     modalContent.appendChild(info);
+    
+    // Supervision 피드백 섹션 추가
+    if (supervision) {
+        const supervisionSection = document.createElement('div');
+        supervisionSection.className = 'prompt-modal-supervision';
+        const score = supervision.score || 0;
+        const isGood = score >= 7;
+        
+        let supervisionHtml = `
+            <div class="supervision-section-header ${isGood ? 'good' : 'needs-improvement'}">
+                <h4>Supervision 피드백</h4>
+                <span class="supervision-score-badge ${isGood ? 'good' : 'needs-improvement'}">${score}/10</span>
+            </div>
+        `;
+        
+        if (supervision.feedback) {
+            supervisionHtml += `<div class="supervision-feedback-text">${supervision.feedback}</div>`;
+        }
+        
+        if (supervision.improvements && supervision.improvements !== '없음') {
+            supervisionHtml += `<div class="supervision-improvements-text"><strong>개선점:</strong> ${supervision.improvements}</div>`;
+        }
+        
+        if (supervision.strengths && supervision.strengths !== '없음') {
+            supervisionHtml += `<div class="supervision-strengths-text"><strong>잘한 점:</strong> ${supervision.strengths}</div>`;
+        }
+        
+        supervisionSection.innerHTML = supervisionHtml;
+        modalContent.appendChild(supervisionSection);
+    }
+    
     modalContent.appendChild(promptText);
     modal.appendChild(modalContent);
     
@@ -502,6 +542,8 @@ function updateSupervisionLog(session) {
         const score = log.score || 7;
         const isGood = score >= 7;
         const feedback = log.feedback || '';
+        const improvements = log.improvements || '';
+        const strengths = log.strengths || '';
         
         return `
             <div class="supervision-item ${isGood ? 'good' : 'needs-improvement'}">
@@ -509,8 +551,10 @@ function updateSupervisionLog(session) {
                     점수: ${score}/10
                 </div>
                 <div class="supervision-feedback">
-                    ${feedback.substring(0, 150)}${feedback.length > 150 ? '...' : ''}
+                    ${feedback}
                 </div>
+                ${improvements && improvements !== '없음' ? `<div class="supervision-improvements">개선점: ${improvements}</div>` : ''}
+                ${strengths && strengths !== '없음' ? `<div class="supervision-strengths">잘한 점: ${strengths}</div>` : ''}
             </div>
         `;
     }).join('');
