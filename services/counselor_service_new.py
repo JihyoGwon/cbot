@@ -202,18 +202,12 @@ class CounselorService:
             )
             
             # 결과 수집
-            completion_result = None
-            user_state = None
             for future in as_completed(futures.values()):
                 result = future.result()
-                # future와 매칭되는 키 찾기
-                for key, f in futures.items():
-                    if f == future:
-                        if key == 'completion':
-                            completion_result = result
-                        elif key == 'user_state':
-                            user_state = result
-                        break
+                if 'completion' in [k for k, v in futures.items() if v == future]:
+                    completion_result = result
+                elif 'user_state' in [k for k, v in futures.items() if v == future]:
+                    user_state = result
             
             timing_log['parallel_check'] = time.time() - t0
             

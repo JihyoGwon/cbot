@@ -26,28 +26,26 @@ class TaskSelectorService:
     
     def get_system_prompt(self) -> str:
         """Task Selector 시스템 프롬프트"""
-        return """당신은 상담 진행 관리자입니다. 현재 대화 상황을 분석하여 다음에 실행할 task를 선택하세요.
+        return """당신은 상담 진행 관리자입니다. 현재 Part 내에서 다음에 실행할 task를 선택하세요.
 
-**Task와 Module:**
-- Task: 이번 상담에서 완료해야 할 구체적 목표
-- Module: Task를 수행하기 위해 사용할 상담 도구/기법
+**선택 기준:**
+1. 현재 Part 내의 Task만 선택
+2. 상태 우선순위: pending > in_progress > sufficient
+3. 우선순위: high > medium > low
+4. 현재 대화 맥락과 자연스럽게 연결되는 task
+5. 사용자의 현재 감정 상태와 요구사항 반영
 
-선택 기준:
-1. 우선순위가 높은 task 우선
-2. 현재 대화 맥락과 자연스럽게 연결되는 task
-3. 사용자의 현재 감정 상태와 요구사항 반영
-4. Task의 module_id를 참조하여 해당 Module의 가이드라인을 활용
-
-선택한 task와 해당 Module의 가이드라인을 바탕으로 구체적인 실행 가이드를 제공하세요."""
+선택한 task를 바탕으로 구체적인 실행 가이드를 제공하세요. (Module은 나중에 선택됩니다)"""
     
     def select_next_task(self, conversation_history: List[Dict], 
-                        available_tasks: List[Dict]) -> Optional[Dict]:
+                        available_tasks: List[Dict], current_part: int) -> Optional[Dict]:
         """
-        다음 실행할 task 선택 (상태 기반 필터링)
+        다음 실행할 task 선택 (현재 Part 내에서만)
         
         Args:
             conversation_history: 대화 기록
             available_tasks: 사용 가능한 task 목록 (모든 상태 포함)
+            current_part: 현재 Part 번호
             
         Returns:
             선택된 task와 실행 가이드
@@ -55,8 +53,11 @@ class TaskSelectorService:
         if not available_tasks:
             return None
         
+        # 현재 Part의 Task만 필터링
+        part_tasks = [t for t in available_tasks if t.get('part') == current_part]
+        
         # completed 상태의 task는 제외
-        selectable_tasks = [t for t in available_tasks if t.get('status') != 'completed']
+        selectable_tasks = [t for t in part_tasks if t.get('status') != 'completed']
         
         if not selectable_tasks:
             return None
@@ -71,23 +72,14 @@ class TaskSelectorService:
             
             # 사용 가능한 task 목록 (상태 정보 포함)
             tasks_info = "\n".join([
-                f"- [{t.get('priority', 'medium')}] [{t.get('status', 'pending')}] {t.get('id')}: {t.get('title')} (Module: {t.get('module_id', 'N/A')}) - {t.get('description')}"
+                f"- [{t.get('priority', 'medium')}] [{t.get('status', 'pending')}] {t.get('id')}: {t.get('title')} - {t.get('description')}"
                 for t in selectable_tasks
             ])
             
-            # Task별 Module 가이드라인 수집
-            module_guidelines_map = {}
-            for task in selectable_tasks:
-                module_id = task.get('module_id')
-                if module_id:
-                    module = self.module_service.get_module(module_id)
-                    if module:
-                        module_guidelines_map[task.get('id')] = self.module_service.get_module_guidelines(module_id)
-            
-            prompt = f"""현재 대화 상황:
+            prompt = f"""현재 Part {current_part}의 대화 상황:
 {conversation_context}
 
-사용 가능한 task 목록 (상태 정보 포함):
+현재 Part {current_part}의 사용 가능한 task 목록:
 {tasks_info}
 
 **선택 기준:**
@@ -96,11 +88,11 @@ class TaskSelectorService:
 3. 현재 대화 맥락과 자연스럽게 연결되는 task
 4. 사용자의 현재 감정 상태와 요구사항 반영
 
-위 task 중에서 현재 상황에 가장 적합한 task를 선택하고, 해당 task의 Module 가이드라인을 참고하여 구체적인 실행 가이드를 제공하세요.
+위 task 중에서 현재 상황에 가장 적합한 task를 선택하고, 구체적인 실행 가이드를 제공하세요.
 
 다음 형식으로 응답하세요:
 SELECTED_TASK_ID: [task_id]
-EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가이드라인을 활용하여 어떤 말투로, 어떤 질문을, 어떤 순서로 진행할지]"""
+EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질문을, 어떤 순서로 진행할지]"""
 
             messages = [
                 ('system', self.get_system_prompt()),
@@ -124,20 +116,9 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가�
             selected_task = next((t for t in selectable_tasks if t.get('id') == selected_task_id), None)
             
             if selected_task:
-                # Module 가이드라인 가져오기
-                module_id = selected_task.get('module_id')
-                module_guidelines = ""
-                if module_id:
-                    module_guidelines = self.module_service.get_module_guidelines(module_id)
-                
-                # 실행 가이드가 없으면 Module 가이드라인 사용
-                if not execution_guide and module_guidelines:
-                    execution_guide = f"다음 Module 가이드라인을 따르세요:\n{module_guidelines}"
-                
                 return {
                     "task": selected_task,
-                    "execution_guide": execution_guide or selected_task.get('target', ''),
-                    "module_id": module_id
+                    "execution_guide": execution_guide or selected_task.get('target', '')
                 }
             else:
                 # 선택 실패 시 상태와 우선순위 기반으로 선택
@@ -158,30 +139,20 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가�
                         else:
                             # sufficient 상태
                             task = selectable_tasks[0]
-                
-                module_id = task.get('module_id')
-                module_guidelines = ""
-                if module_id:
-                    module_guidelines = self.module_service.get_module_guidelines(module_id)
-                return {
-                    "task": task,
-                    "execution_guide": module_guidelines or task.get('target', ''),
-                    "module_id": module_id
-                }
+            
+            return {
+                "task": task,
+                "execution_guide": task.get('target', '')
+            }
             
         except Exception as e:
             print(f"Task 선택 오류: {str(e)}")
             # 오류 시 첫 번째 selectable task 반환
             if selectable_tasks:
                 task = selectable_tasks[0]
-                module_id = task.get('module_id')
-                module_guidelines = ""
-                if module_id:
-                    module_guidelines = self.module_service.get_module_guidelines(module_id)
                 return {
                     "task": task,
-                    "execution_guide": module_guidelines or task.get('target', ''),
-                    "module_id": module_id
+                    "execution_guide": task.get('target', '')
                 }
             return None
 

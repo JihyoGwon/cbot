@@ -75,7 +75,8 @@ def chat(conversation_id):
         prompt_metadata = {
             'prompt': result.get('prompt', ''),
             'current_task': result.get('current_task'),
-            'tasks_remaining': result.get('tasks_remaining', 0)
+            'current_part': result.get('current_part', 1),
+            'current_module': result.get('current_module')
         }
         
         # Supervision 결과가 있으면 메타데이터에 포함
@@ -100,7 +101,8 @@ def chat(conversation_id):
             'conversation_id': conversation_id,
             'response': result['response'],
             'current_task': result.get('current_task'),
-            'tasks_remaining': result.get('tasks_remaining', 0)
+            'current_part': result.get('current_part', 1),
+            'current_module': result.get('current_module')
         }
         
         # Supervision 결과가 있으면 포함 (디버깅용)

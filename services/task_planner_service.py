@@ -57,7 +57,7 @@ Task 생성 시 고려사항:
             return [
                 {
                     "id": "task_rapport_1",
-                    "module_id": "rapport_building",  # 사용할 Module
+                    "part": 1,
                     "priority": "high",
                     "title": "사용자에게 따뜻하게 환영 인사하기",
                     "description": "사용자를 따뜻하게 환영하고, 편안하게 이야기할 수 있음을 전달",
@@ -67,7 +67,7 @@ Task 생성 시 고려사항:
                 },
                 {
                     "id": "task_info_1",
-                    "module_id": "information_gathering",
+                    "part": 1,
                     "priority": "high",
                     "title": "사용자의 이름과 상담 목적 파악하기",
                     "description": "사용자의 이름과 이번 상담을 찾게 된 이유를 자연스럽게 물어보기",
@@ -77,39 +77,227 @@ Task 생성 시 고려사항:
                     "status": "pending"
                 },
                 {
-                    "id": "task_info_2",
-                    "module_id": "information_gathering",
-                    "priority": "high",
-                    "title": "사용자의 현재 상황과 문제 파악하기",
-                    "description": "사용자가 현재 겪고 있는 문제나 상황을 이해하기",
-                    "target": "사용자의 현재 상황과 주요 문제점 파악",
-                    "completion_criteria": "사용자가 문제를 설명했고, 상담사가 '~한 문제로 보이는데 맞아?' 같은 방식으로 요약/확인했을 때 완료",
-                    "restrictions": "이 단계에서는 해결책이나 조언을 제시하지 말고, 오직 듣고 이해하는 것에만 집중하세요.",
-                    "status": "pending"
-                },
-                {
-                    "id": "task_goal_1",
-                    "module_id": "goal_setting",
+                    "id": "task_rapport_2",
+                    "part": 1,
                     "priority": "medium",
-                    "title": "이번 상담의 구체적 목표 설정하기",
-                    "description": "사용자와 함께 이번 상담을 통해 달성하고 싶은 목표를 설정",
-                    "target": "구체적이고 달성 가능한 상담 목표 1-2개 설정",
-                    "completion_criteria": "사용자와 함께 상담 목표 1-2개를 구체적으로 설정했을 때 완료",
-                    "status": "pending"
-                },
-                {
-                    "id": "task_trust_1",
-                    "module_id": "trust_building",
-                    "priority": "medium",
-                    "title": "상담 과정과 기대치 안내하기",
-                    "description": "앞으로의 상담이 어떻게 진행될지, 무엇을 기대할 수 있는지 설명",
-                    "target": "사용자가 상담 과정을 이해하고 기대치 설정",
-                    "completion_criteria": "상담 과정과 기대치를 설명하고 사용자가 이해했다고 확인했을 때 완료",
+                    "title": "관계 형성하기",
+                    "description": "사용자와 신뢰 관계를 구축하고 편안한 분위기 만들기",
+                    "target": "사용자가 편안하게 느끼고 신뢰할 수 있는 관계 형성",
+                    "completion_criteria": "사용자가 편안하게 대화를 이어갈 수 있을 때 완료",
                     "status": "pending"
                 }
             ]
         else:
             return []
+    
+    def create_part2_tasks(self, conversation_history: List[Dict], part1_info: Dict) -> List[Dict]:
+        """
+        Part 2 Task 동적 생성 (Part 1 완료 시점)
+        
+        Args:
+            conversation_history: 대화 기록
+            part1_info: Part 1에서 수집한 정보
+            
+        Returns:
+            Part 2 Task 목록
+        """
+        # Part 1에서 수집한 정보 요약
+        recent_messages = conversation_history[-15:] if len(conversation_history) > 15 else conversation_history
+        conversation_summary = "\n".join([
+            f"{msg.get('role')}: {msg.get('content', '')[:200]}"
+            for msg in recent_messages
+        ])
+        
+        prompt = f"""Part 1 상담이 완료되었습니다. Part 1에서 수집한 정보를 바탕으로 Part 2 (탐색) Task를 생성하세요.
+
+Part 1 대화 내용:
+{conversation_summary}
+
+Part 1에서 파악한 정보:
+- 사용자 이름: {part1_info.get('user_name', 'N/A')}
+- 상담 목적: {part1_info.get('counseling_purpose', 'N/A')}
+- 기본 문제: {part1_info.get('basic_problem', 'N/A')}
+
+Part 2는 사용자의 문제 상황을 깊이 탐색하는 단계입니다. 다음을 고려하여 Task를 생성하세요:
+
+1. 사용자의 문제 상황을 더 깊이 이해하기 위한 Task
+2. 감정과 경험을 탐색하기 위한 Task
+3. 배경 정보와 맥락을 파악하기 위한 Task
+4. 문제의 원인과 패턴을 찾기 위한 Task
+
+각 Task는 구체적이고 달성 가능한 목표로 작성하세요. Task는 module_id 없이 생성하세요 (Module은 나중에 선택됩니다).
+
+JSON 형식으로 Task 목록을 반환하세요:
+[
+  {{
+    "id": "task_part2_1",
+    "part": 2,
+    "priority": "high|medium|low",
+    "title": "Task 제목",
+    "description": "Task 설명",
+    "target": "완료 목표",
+    "completion_criteria": "완료 판단 기준",
+    "status": "pending"
+  }}
+]
+
+최대 7개의 Task를 생성하세요. JSON만 반환하고 다른 설명은 하지 마세요."""
+        
+        messages = [
+            ('system', self.get_first_session_prompt()),
+            ('user', prompt)
+        ]
+        
+        try:
+            response = self.llm.invoke(messages)
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            # JSON 파싱
+            import json
+            import re
+            
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                tasks = json.loads(json_match.group())
+                # part 필드 확인
+                for task in tasks:
+                    if 'part' not in task:
+                        task['part'] = 2
+                return tasks
+            return []
+        
+        except Exception as e:
+            print(f"Part 2 Task 생성 오류: {str(e)}")
+            return []
+    
+    def update_part2_tasks(self, conversation_history: List[Dict], current_tasks: List[Dict],
+                          user_state: Dict, should_update: bool) -> List[Dict]:
+        """
+        Part 2 Task 업데이트 (특정 조건 충족 시)
+        
+        Args:
+            conversation_history: 대화 기록
+            current_tasks: 현재 Task 목록
+            user_state: User State Detector 결과
+            should_update: 업데이트 필요 여부
+            
+        Returns:
+            업데이트된 Task 목록
+        """
+        if not should_update:
+            return current_tasks
+        
+        # 업데이트 조건 확인
+        update_reasons = []
+        if user_state.get('topic_change'):
+            update_reasons.append("대화 주제 변경")
+        if user_state.get('resistance_detected'):
+            update_reasons.append("사용자 저항 감지")
+        if user_state.get('circular_conversation'):
+            update_reasons.append("대화가 빙빙 돎")
+        
+        if not update_reasons:
+            return current_tasks
+        
+        # Part 2 Task만 필터링
+        part2_tasks = [t for t in current_tasks if t.get('part') == 2]
+        other_tasks = [t for t in current_tasks if t.get('part') != 2]
+        
+        # 업데이트 프롬프트
+        recent_messages = conversation_history[-10:] if len(conversation_history) > 10 else conversation_history
+        conversation_summary = "\n".join([
+            f"{msg.get('role')}: {msg.get('content', '')[:150]}"
+            for msg in recent_messages
+        ])
+        
+        prompt = f"""Part 2 Task를 업데이트해야 합니다.
+
+업데이트 이유: {', '.join(update_reasons)}
+
+현재 대화:
+{conversation_summary}
+
+현재 Part 2 Task:
+{json.dumps(part2_tasks, ensure_ascii=False, indent=2)}
+
+사용자 상태:
+- 저항: {user_state.get('resistance_detected', False)}
+- 감정 변화: {user_state.get('emotion_change', 'None')}
+- 주제 변경: {user_state.get('topic_change', False)}
+- 빙빙 도는 대화: {user_state.get('circular_conversation', False)}
+
+위 정보를 바탕으로 Part 2 Task를 업데이트하세요:
+1. 새로운 Task 추가 (필요 시)
+2. 기존 Task 수정 (필요 시)
+3. 불필요한 Task 제거 (필요 시)
+
+JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 7개를 유지하세요."""
+        
+        messages = [
+            ('system', self.get_first_session_prompt()),
+            ('user', prompt)
+        ]
+        
+        try:
+            import json
+            import re
+            
+            response = self.llm.invoke(messages)
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                updated_part2_tasks = json.loads(json_match.group())
+                # part 필드 확인
+                for task in updated_part2_tasks:
+                    if 'part' not in task:
+                        task['part'] = 2
+                return other_tasks + updated_part2_tasks
+            return current_tasks
+        
+        except Exception as e:
+            print(f"Part 2 Task 업데이트 오류: {str(e)}")
+            return current_tasks
+    
+    def create_part3_tasks(self) -> List[Dict]:
+        """
+        Part 3 Task 생성 (고정)
+        
+        Returns:
+            Part 3 Task 목록
+        """
+        return [
+            {
+                "id": "task_summary_1",
+                "part": 3,
+                "priority": "high",
+                "title": "상담 내용 요약하기",
+                "description": "오늘 상담에서 다룬 내용을 요약하고 정리",
+                "target": "사용자가 오늘 상담 내용을 이해하고 정리",
+                "completion_criteria": "상담 내용을 요약하고 사용자가 확인했을 때 완료",
+                "status": "pending"
+            },
+            {
+                "id": "task_goal_1",
+                "part": 3,
+                "priority": "high",
+                "title": "상담 목표 설정하기",
+                "description": "앞으로의 상담 목표를 설정",
+                "target": "구체적이고 달성 가능한 상담 목표 설정",
+                "completion_criteria": "상담 목표를 설정하고 사용자가 동의했을 때 완료",
+                "status": "pending"
+            },
+            {
+                "id": "task_next_1",
+                "part": 3,
+                "priority": "medium",
+                "title": "다음 상담 안내하기",
+                "description": "다음 상담 일정과 준비사항 안내",
+                "target": "다음 상담 계획을 수립하고 안내",
+                "completion_criteria": "다음 상담 안내를 완료했을 때 완료",
+                "status": "pending"
+            }
+        ]
     
     def update_tasks(self, conversation_history: List[Dict], current_tasks: List[Dict]) -> List[Dict]:
         """
@@ -183,7 +371,7 @@ Task 생성 시 고려사항:
 JSON 형식으로 업데이트된 task 목록을 반환하세요. 각 task는 다음 형식을 따르세요:
 {{
   "id": "task_id",
-  "module_id": "module_id",
+  "part": 1|2|3,
   "priority": "high|medium|low",
   "title": "task 제목 (구체적 목표)",
   "description": "task 설명",

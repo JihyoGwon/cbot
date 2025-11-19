@@ -25,10 +25,14 @@ class SessionService:
             "conversation_id": conversation_id,
             "session_type": session_type,
             "status": "active",  # active, wrapping_up, completed
+            "current_part": 1,  # Part 번호 (1, 2, 3)
             "created_at": datetime.now(),
             "updated_at": datetime.now(),
             "tasks": [],  # 모든 상태의 task 포함 (completed 포함)
             "current_task": None,
+            "current_module": None,  # 현재 사용 중인 Module ID
+            "previous_module": None,  # 이전 Module ID (변경 시)
+            "module_change_reason": None,  # Module 변경 이유
             "user_info": {},
             "goals": [],
             "supervision_log": [],
