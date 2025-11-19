@@ -8,6 +8,12 @@ const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const newConversationBtn = document.getElementById('new-conversation-btn');
 const conversationIdDisplay = document.getElementById('conversation-id-display');
+const sidebar = document.getElementById('sidebar');
+const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+
+// 세션 정보 업데이트 인터벌
+let sessionUpdateInterval = null;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,6 +22,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 전송 버튼 클릭
     sendBtn.addEventListener('click', sendMessage);
+    
+    // 사이드바 토글
+    toggleSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+    });
+    
+    closeSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+    });
     
     // Enter 키로 전송 (Shift+Enter는 줄바꿈)
     messageInput.addEventListener('keydown', (e) => {
@@ -62,6 +77,9 @@ async function startNewConversation() {
                 <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
             </div>
         `;
+        
+        // 세션 정보 업데이트 시작
+        startSessionUpdates();
         
         // 기존 대화 불러오기 (선택사항)
         // loadConversationHistory();
@@ -118,6 +136,9 @@ async function sendMessage() {
         
         // AI 응답 표시
         addMessage('assistant', data.response);
+        
+        // 세션 정보 즉시 업데이트
+        updateSessionInfo();
         
     } catch (error) {
         console.error('메시지 전송 오류:', error);
@@ -219,6 +240,158 @@ function showError(message) {
     errorDiv.appendChild(contentDiv);
     chatMessages.appendChild(errorDiv);
     scrollToBottom();
+}
+
+// 세션 정보 업데이트 시작
+function startSessionUpdates() {
+    // 기존 인터벌 정리
+    if (sessionUpdateInterval) {
+        clearInterval(sessionUpdateInterval);
+    }
+    
+    // 즉시 한 번 실행
+    updateSessionInfo();
+    
+    // 2초마다 업데이트
+    sessionUpdateInterval = setInterval(() => {
+        if (conversationId) {
+            updateSessionInfo();
+        }
+    }, 2000);
+}
+
+// 세션 정보 업데이트
+async function updateSessionInfo() {
+    if (!conversationId) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sessions/${conversationId}`);
+        
+        if (!response.ok) {
+            return;
+        }
+        
+        const session = await response.json();
+        
+        // 현재 task 표시
+        updateCurrentTask(session);
+        
+        // Task 목록 표시
+        updateTaskList(session);
+        
+        // 완료된 task 표시
+        updateCompletedTasks(session);
+        
+        // Supervision 로그 표시
+        updateSupervisionLog(session);
+        
+    } catch (error) {
+        console.error('세션 정보 업데이트 오류:', error);
+    }
+}
+
+// 현재 task 업데이트
+function updateCurrentTask(session) {
+    const currentTaskEl = document.getElementById('current-task');
+    const currentTaskId = session.current_task;
+    const tasks = session.tasks || [];
+    
+    const currentTask = tasks.find(t => t.id === currentTaskId);
+    
+    if (currentTask) {
+        currentTaskEl.innerHTML = `
+            <div class="task-title">${currentTask.title || currentTask.id}</div>
+            <div class="task-description">${currentTask.description || ''}</div>
+            <div class="task-meta">
+                <span class="task-priority ${currentTask.priority || 'medium'}">${currentTask.priority || 'medium'}</span>
+                <span>${currentTask.type || ''}</span>
+            </div>
+        `;
+    } else {
+        currentTaskEl.innerHTML = '<p class="no-task">아직 task가 없습니다.</p>';
+    }
+}
+
+// Task 목록 업데이트
+function updateTaskList(session) {
+    const taskListEl = document.getElementById('task-list');
+    const tasks = session.tasks || [];
+    const currentTaskId = session.current_task;
+    
+    if (tasks.length === 0) {
+        taskListEl.innerHTML = '<p class="no-task">task가 없습니다.</p>';
+        return;
+    }
+    
+    taskListEl.innerHTML = tasks.map(task => {
+        const isCurrent = task.id === currentTaskId;
+        return `
+            <div class="task-item ${isCurrent ? 'current' : ''}">
+                <div class="task-title">${task.title || task.id}</div>
+                <div class="task-description">${task.description || ''}</div>
+                <div class="task-meta">
+                    <span class="task-priority ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
+                    <span>${task.type || ''}</span>
+                    ${isCurrent ? '<span style="color: #667eea; font-weight: 600;">진행 중</span>' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 완료된 task 업데이트
+function updateCompletedTasks(session) {
+    const completedTasksEl = document.getElementById('completed-tasks');
+    const completedTasks = session.completed_tasks || [];
+    
+    if (completedTasks.length === 0) {
+        completedTasksEl.innerHTML = '<p class="no-task">완료된 task가 없습니다.</p>';
+        return;
+    }
+    
+    completedTasksEl.innerHTML = completedTasks.map(task => {
+        return `
+            <div class="task-item completed">
+                <div class="task-title">${task.title || task.id}</div>
+                <div class="task-description">${task.description || ''}</div>
+                <div class="task-meta">
+                    <span class="task-priority ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
+                    <span>완료됨</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Supervision 로그 업데이트
+function updateSupervisionLog(session) {
+    const supervisionLogEl = document.getElementById('supervision-log');
+    const supervisionLog = session.supervision_log || [];
+    
+    if (supervisionLog.length === 0) {
+        supervisionLogEl.innerHTML = '<p class="no-task">아직 supervision이 없습니다.</p>';
+        return;
+    }
+    
+    // 최근 5개만 표시
+    const recentLogs = supervisionLog.slice(-5).reverse();
+    
+    supervisionLogEl.innerHTML = recentLogs.map(log => {
+        const score = log.score || 7;
+        const isGood = score >= 7;
+        const feedback = log.feedback || '';
+        
+        return `
+            <div class="supervision-item ${isGood ? 'good' : 'needs-improvement'}">
+                <div class="supervision-score ${isGood ? 'good' : 'needs-improvement'}">
+                    점수: ${score}/10
+                </div>
+                <div class="supervision-feedback">
+                    ${feedback.substring(0, 150)}${feedback.length > 150 ? '...' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // 대화 기록 불러오기 (선택사항)

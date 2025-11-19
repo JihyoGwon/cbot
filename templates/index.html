@@ -13,12 +13,52 @@
             <div class="conversation-info">
                 <span id="conversation-id-display">새 대화</span>
                 <button id="new-conversation-btn" class="btn-secondary">새 대화 시작</button>
+                <button id="toggle-sidebar-btn" class="btn-secondary">📊 정보</button>
             </div>
         </div>
         
-        <div class="chat-messages" id="chat-messages">
-            <div class="welcome-message">
-                <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
+        <div class="main-content">
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-message">
+                    <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
+                </div>
+            </div>
+            
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h3>상담 정보</h3>
+                    <button id="close-sidebar-btn" class="btn-close">×</button>
+                </div>
+                
+                <div class="sidebar-content">
+                    <div class="info-section">
+                        <h4>📋 현재 Task</h4>
+                        <div id="current-task" class="current-task">
+                            <p class="no-task">아직 task가 없습니다.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>✅ Task 목록</h4>
+                        <div id="task-list" class="task-list">
+                            <p class="no-task">task가 없습니다.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>🎯 완료된 Task</h4>
+                        <div id="completed-tasks" class="completed-tasks">
+                            <p class="no-task">완료된 task가 없습니다.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>👁️ Supervision</h4>
+                        <div id="supervision-log" class="supervision-log">
+                            <p class="no-task">아직 supervision이 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
