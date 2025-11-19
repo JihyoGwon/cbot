@@ -52,7 +52,7 @@ class FirestoreService:
         conversation_ref.set(conversation_data)
         return conversation_id
     
-    def add_message(self, conversation_id: str, role: str, content: str) -> None:
+    def add_message(self, conversation_id: str, role: str, content: str, metadata: Optional[Dict] = None) -> None:
         """
         대화에 메시지 추가
         
@@ -60,6 +60,7 @@ class FirestoreService:
             conversation_id: 대화 ID
             role: 메시지 역할 ('user' 또는 'assistant')
             content: 메시지 내용
+            metadata: 메시지 메타데이터 (프롬프트 등)
         """
         conversation_ref = self.db.collection(self.collection_name).document(conversation_id)
         
@@ -68,6 +69,9 @@ class FirestoreService:
             'content': content,
             'timestamp': datetime.now()
         }
+        
+        if metadata:
+            message['metadata'] = metadata
         
         conversation_ref.update({
             'messages': firestore.ArrayUnion([message]),

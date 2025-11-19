@@ -71,8 +71,18 @@ def chat(conversation_id):
         # 통합 상담 서비스 호출 (Task Planner, Selector, Supervisor 포함)
         result = counselor_service.chat(conversation_id, user_message, conversation_history)
         
-        # 상담사 응답을 Firestore에 저장
-        firestore_service.add_message(conversation_id, 'assistant', result['response'])
+        # 상담사 응답을 Firestore에 저장 (프롬프트 메타데이터 포함)
+        prompt_metadata = {
+            'prompt': result.get('prompt', ''),
+            'current_task': result.get('current_task'),
+            'tasks_remaining': result.get('tasks_remaining', 0)
+        }
+        firestore_service.add_message(
+            conversation_id, 
+            'assistant', 
+            result['response'],
+            metadata=prompt_metadata
+        )
         
         # 응답에 메타데이터 포함
         response_data = {
@@ -171,6 +181,38 @@ def get_session(conversation_id):
                     }
         
         return jsonify(session), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/api/conversations/<conversation_id>/messages/<int:message_index>/prompt', methods=['GET'])
+def get_message_prompt(conversation_id, message_index):
+    """특정 메시지의 프롬프트 가져오기"""
+    try:
+        conversation = firestore_service.get_conversation(conversation_id)
+        
+        if not conversation:
+            return jsonify({'error': '대화를 찾을 수 없습니다.'}), 404
+        
+        messages = conversation.get('messages', [])
+        
+        if message_index < 0 or message_index >= len(messages):
+            return jsonify({'error': '메시지를 찾을 수 없습니다.'}), 404
+        
+        message = messages[message_index]
+        
+        # assistant 메시지이고 metadata가 있는 경우만 프롬프트 반환
+        if message.get('role') == 'assistant' and message.get('metadata'):
+            prompt = message.get('metadata', {}).get('prompt', '')
+            return jsonify({
+                'prompt': prompt,
+                'current_task': message.get('metadata', {}).get('current_task'),
+                'tasks_remaining': message.get('metadata', {}).get('tasks_remaining', 0)
+            }), 200
+        else:
+            return jsonify({'error': '이 메시지에는 프롬프트 정보가 없습니다.'}), 404
         
     except Exception as e:
         import traceback

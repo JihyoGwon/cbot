@@ -134,8 +134,21 @@ async function sendMessage() {
         // 타이핑 인디케이터 제거
         removeTypingIndicator(typingIndicator);
         
-        // AI 응답 표시
-        addMessage('assistant', data.response);
+        // 대화 기록 가져와서 메시지 인덱스 확인
+        try {
+            const convResponse = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}`);
+            if (convResponse.ok) {
+                const conversation = await convResponse.json();
+                const messages = conversation.messages || [];
+                const messageIndex = messages.length - 1; // 방금 추가된 메시지의 인덱스
+                addMessage('assistant', data.response, messageIndex);
+            } else {
+                addMessage('assistant', data.response);
+            }
+        } catch (error) {
+            console.error('대화 기록 가져오기 오류:', error);
+            addMessage('assistant', data.response);
+        }
         
         // 세션 정보 즉시 업데이트
         updateSessionInfo();
@@ -151,13 +164,25 @@ async function sendMessage() {
 }
 
 // 메시지 추가
-function addMessage(role, content) {
+function addMessage(role, content, messageIndex = null) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
+    
+    // 메시지 인덱스 저장 (assistant 메시지의 경우 프롬프트 조회용)
+    if (messageIndex !== null) {
+        messageDiv.dataset.messageIndex = messageIndex;
+    }
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     contentDiv.textContent = content;
+    
+    // assistant 메시지인 경우 클릭 가능하게 표시
+    if (role === 'assistant' && messageIndex !== null) {
+        contentDiv.style.cursor = 'pointer';
+        contentDiv.title = '클릭하여 프롬프트 보기';
+        contentDiv.addEventListener('click', () => showPrompt(messageIndex));
+    }
     
     const timeDiv = document.createElement('div');
     timeDiv.className = 'message-time';
@@ -177,6 +202,89 @@ function addMessage(role, content) {
     
     chatMessages.appendChild(messageDiv);
     scrollToBottom();
+}
+
+// 프롬프트 표시
+async function showPrompt(messageIndex) {
+    if (!conversationId) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/messages/${messageIndex}/prompt`);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(errorData.error || '프롬프트를 가져올 수 없습니다.');
+            return;
+        }
+        
+        const data = await response.json();
+        const prompt = data.prompt || '프롬프트 정보가 없습니다.';
+        
+        // 모달 창으로 프롬프트 표시
+        showPromptModal(prompt, data.current_task, data.tasks_remaining);
+        
+    } catch (error) {
+        console.error('프롬프트 가져오기 오류:', error);
+        alert('프롬프트를 가져오는 중 오류가 발생했습니다.');
+    }
+}
+
+// 프롬프트 모달 표시
+function showPromptModal(prompt, currentTask, tasksRemaining) {
+    // 기존 모달이 있으면 제거
+    const existingModal = document.getElementById('prompt-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 모달 생성
+    const modal = document.createElement('div');
+    modal.id = 'prompt-modal';
+    modal.className = 'prompt-modal';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'prompt-modal-content';
+    
+    const header = document.createElement('div');
+    header.className = 'prompt-modal-header';
+    header.innerHTML = `
+        <h3>프롬프트 전문</h3>
+        <button class="prompt-modal-close" onclick="this.closest('.prompt-modal').remove()">×</button>
+    `;
+    
+    const info = document.createElement('div');
+    info.className = 'prompt-modal-info';
+    info.innerHTML = `
+        <div>현재 Task: ${currentTask || 'N/A'}</div>
+        <div>남은 Tasks: ${tasksRemaining || 0}</div>
+    `;
+    
+    const promptText = document.createElement('pre');
+    promptText.className = 'prompt-modal-text';
+    promptText.textContent = prompt;
+    
+    modalContent.appendChild(header);
+    modalContent.appendChild(info);
+    modalContent.appendChild(promptText);
+    modal.appendChild(modalContent);
+    
+    document.body.appendChild(modal);
+    
+    // 모달 외부 클릭 시 닫기
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // ESC 키로 닫기
+    const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
 }
 
 // 타이핑 인디케이터 표시
