@@ -22,12 +22,27 @@ class TaskCompletionCheckerService:
     
     def get_system_prompt(self) -> str:
         """Task Completion Checker 시스템 프롬프트"""
-        return """당신은 Task 완료 여부를 판단하는 전문가입니다. 현재 Task가 완료되었는지 판단하세요.
+        return """당신은 Task 완료 여부를 판단하는 전문가입니다. **실용적이고 관대한 기준**으로 Task 완료를 판단하세요.
 
-**Task 완료 판단 기준:**
+**중요 원칙:**
+- 완벽한 달성을 기대하지 마세요. 기본적인 목표가 달성되면 완료로 판단하세요.
+- 사용자가 Task의 핵심 목표에 대해 응답하거나 행동했다면 완료로 판단하세요.
+- "sufficient"는 "충분히 다뤘다"는 의미로, 완벽하지 않아도 다음 단계로 진행 가능하면 "sufficient"로 판단하세요.
+
+**Task 완료 판단 기준 (우선순위 순):**
 1. 명시적 완료 신호: 사용자나 상담사가 Task 목표를 달성했다고 명시
-2. Task 목표 달성: completion_criteria가 충족되었는지 확인
-3. 충분히 다뤘음: 사용자의 문제를 더 깊이 다룰 준비가 되었음
+2. 핵심 목표 달성: Task의 핵심 목표(target)가 달성되었는지 확인 (completion_criteria보다 관대하게)
+3. 기본적인 진행: 사용자가 Task와 관련된 정보를 공유하거나 대화에 참여하기 시작했을 때
+
+**"sufficient" 판단 기준:**
+- Task의 핵심 목표가 기본적으로 달성되었고
+- 더 깊이 다루기보다는 다음 Task로 진행하는 것이 자연스러울 때
+- 완벽하지 않아도 상담이 진행될 수 있을 때
+
+**주의사항:**
+- 완벽한 관계 형성이나 완벽한 정보 수집을 요구하지 마세요.
+- 사용자가 대화에 참여하고 기본적인 정보를 공유하기 시작했다면 "sufficient"로 판단하세요.
+- 같은 이유로 계속 미완료로 판단하지 마세요. 진행이 있다면 완료로 판단하세요.
 
 **응답 형식:**
 IS_COMPLETED: [True|False]
@@ -80,7 +95,14 @@ Task ID: {current_task.get('id')}
 최근 대화:
 {conversation_context}
 
-위 정보를 바탕으로 Task가 완료되었는지 판단하세요.
+**판단 요청:**
+위 정보를 바탕으로 Task가 완료되었는지 **관대하고 실용적인 기준**으로 판단하세요.
+
+**특별 고려사항:**
+- Task의 핵심 목표(target)가 달성되었는지 확인하세요.
+- completion_criteria는 참고용이지만, 완벽한 달성을 요구하지 마세요.
+- 사용자가 Task와 관련된 정보를 공유하거나 대화에 참여하기 시작했다면 "sufficient"로 판단하세요.
+- 같은 Task가 여러 턴 동안 미완료 상태라면, 진행이 있다면 완료로 판단하세요.
 
 {self.get_system_prompt()}"""
         
@@ -115,7 +137,8 @@ Task ID: {current_task.get('id')}
                 "is_completed": is_completed,
                 "new_status": new_status if is_completed else None,
                 "completion_reason": completion_reason,
-                "task_id": current_task.get('id')
+                "task_id": current_task.get('id'),
+                "raw_output": response_text  # 디버깅용 원본 출력
             }
         
         except Exception as e:

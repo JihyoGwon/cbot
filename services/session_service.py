@@ -37,6 +37,7 @@ class SessionService:
             "goals": [],
             "supervision_log": [],
             "session_manager_log": [],  # Session Manager 평가 로그
+            "completion_log": [],  # Task Completion Checker 로그
             "message_count": 0
         }
         
@@ -153,6 +154,24 @@ class SessionService:
         session_ref = self.firestore.db.collection("sessions").document(conversation_id)
         session_ref.update({
             "supervision_log": supervision_log,
+            "updated_at": datetime.now()
+        })
+    
+    def add_completion_log(self, conversation_id: str, completion_result: Dict) -> None:
+        """Task Completion Checker 결과 로그 추가"""
+        session = self.get_session(conversation_id)
+        if not session:
+            return
+        
+        completion_log = session.get("completion_log", [])
+        completion_log.append({
+            **completion_result,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        session_ref = self.firestore.db.collection("sessions").document(conversation_id)
+        session_ref.update({
+            "completion_log": completion_log,
             "updated_at": datetime.now()
         })
     

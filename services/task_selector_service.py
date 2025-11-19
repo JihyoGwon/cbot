@@ -56,7 +56,7 @@ class TaskSelectorService:
         # 현재 Part의 Task만 필터링
         part_tasks = [t for t in available_tasks if t.get('part') == current_part]
         
-        # completed 상태의 task는 제외
+        # completed 상태의 task만 제외 (sufficient는 재선택 가능하지만 우선순위 낮음)
         selectable_tasks = [t for t in part_tasks if t.get('status') != 'completed']
         
         if not selectable_tasks:
@@ -83,7 +83,14 @@ class TaskSelectorService:
 {tasks_info}
 
 **선택 기준:**
-1. 상태 우선순위: pending > in_progress > sufficient (completed는 제외됨)
+1. 상태 우선순위: pending > in_progress > sufficient (completed는 제외됨 - 완전 종료)
+   - pending: 아직 시작하지 않은 Task (최우선)
+   - in_progress: 진행 중인 Task (중간 우선순위)
+   - sufficient: 충분히 다뤘지만 필요 시 재선택 가능 (낮은 우선순위)
+   - completed: 완전 종료, 절대 선택하지 않음
+   
+**중요:** pending이나 in_progress Task가 있으면 그것들을 우선 선택하세요. 모든 Task가 sufficient 이상일 때만 Part 전환을 고려합니다.
+
 2. 우선순위: high > medium > low
 3. 현재 대화 맥락과 자연스럽게 연결되는 task
 4. 사용자의 현재 감정 상태와 요구사항 반영
@@ -138,8 +145,13 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질�
                         if in_progress_tasks:
                             task = in_progress_tasks[0]
                         else:
-                            # sufficient 상태
-                            task = selectable_tasks[0]
+                            # sufficient 상태 (낮은 우선순위지만 선택 가능)
+                            sufficient_tasks = [t for t in selectable_tasks if t.get('status') == 'sufficient']
+                            if sufficient_tasks:
+                                task = sufficient_tasks[0]
+                            else:
+                                # selectable_tasks가 비어있으면 None 반환
+                                return None
             
             return {
                 "task": task,
@@ -149,9 +161,26 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질�
             
         except Exception as e:
             print(f"Task 선택 오류: {str(e)}")
-            # 오류 시 첫 번째 selectable task 반환
-            if selectable_tasks:
-                task = selectable_tasks[0]
+            # 오류 시 상태 우선순위로 선택 (pending > in_progress > sufficient)
+            pending_tasks = [t for t in selectable_tasks if t.get('status') == 'pending']
+            if pending_tasks:
+                task = pending_tasks[0]
+                return {
+                    "task": task,
+                    "execution_guide": task.get('target', ''),
+                    "raw_output": "오류 발생: " + str(e)
+                }
+            in_progress_tasks = [t for t in selectable_tasks if t.get('status') == 'in_progress']
+            if in_progress_tasks:
+                task = in_progress_tasks[0]
+                return {
+                    "task": task,
+                    "execution_guide": task.get('target', ''),
+                    "raw_output": "오류 발생: " + str(e)
+                }
+            sufficient_tasks = [t for t in selectable_tasks if t.get('status') == 'sufficient']
+            if sufficient_tasks:
+                task = sufficient_tasks[0]
                 return {
                     "task": task,
                     "execution_guide": task.get('target', ''),

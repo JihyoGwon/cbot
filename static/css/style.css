@@ -734,6 +734,106 @@ body {
     margin-bottom: 12px;
 }
 
+/* Task Completion Checker 로그 스타일 */
+.completion-log {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.completion-item {
+    padding: 12px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border-left: 4px solid var(--border-color);
+    font-size: 13px;
+}
+
+.completion-item.completed {
+    border-left-color: #4caf50;
+}
+
+.completion-item.not-completed {
+    border-left-color: #ff9800;
+}
+
+.completion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.completion-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.completion-status.yes {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.completion-status.no {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.completion-task {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.completion-status-info {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.completion-reason {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.completion-raw {
+    margin-top: 8px;
+    font-size: 11px;
+}
+
+.completion-raw summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.completion-raw summary:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.completion-raw-text {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

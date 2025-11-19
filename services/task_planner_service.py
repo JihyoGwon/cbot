@@ -1,10 +1,13 @@
 """Task Planner LLM 서비스 - 상담 task 생성 및 업데이트"""
 import os
 import json
+import logging
 from typing import List, Dict, Optional
 from langchain_google_vertexai import ChatVertexAI
 from config import Config
 from services.module_service import ModuleService
+
+logger = logging.getLogger(__name__)
 
 
 class TaskPlannerService:
@@ -19,7 +22,7 @@ class TaskPlannerService:
             project=Config.PROJECT_ID,
             location=Config.LOCATION,
             temperature=0.7,  # Task 생성은 더 구조화된 답변이 필요
-            max_output_tokens=300,  # 짧은 응답
+            max_output_tokens=2000,  # JSON 배열 반환을 위해 충분한 토큰 필요
             model_kwargs={"thinking_budget": 0}  # Think budget을 0으로 설정하여 빠른 응답
         )
         
@@ -79,35 +82,28 @@ Task 생성 시 고려사항:
         else:
             return []
     
-    def create_part2_tasks(self, conversation_history: List[Dict], part1_info: Dict) -> List[Dict]:
+    def create_part2_tasks(self, conversation_history: List[Dict]) -> List[Dict]:
         """
         Part 2 Task 동적 생성 (Part 1 완료 시점)
         
         Args:
             conversation_history: 대화 기록
-            part1_info: Part 1에서 수집한 정보
             
         Returns:
             Part 2 Task 목록
         """
-        # Part 1에서 수집한 정보 요약
-        recent_messages = conversation_history[-15:] if len(conversation_history) > 15 else conversation_history
+        # 전체 대화 내용 요약 (Part 1 전체 대화 포함)
         conversation_summary = "\n".join([
-            f"{msg.get('role')}: {msg.get('content', '')[:200]}"
-            for msg in recent_messages
+            f"{msg.get('role')}: {msg.get('content', '')[:300]}"
+            for msg in conversation_history
         ])
         
-        prompt = f"""Part 1 상담이 완료되었습니다. Part 1에서 수집한 정보를 바탕으로 Part 2 (탐색) Task를 생성하세요.
+        prompt = f"""Part 1 상담이 완료되었습니다. 지금까지의 대화 내용을 바탕으로 Part 2 (탐색) Task를 생성하세요.
 
-Part 1 대화 내용:
+전체 대화 내용:
 {conversation_summary}
 
-Part 1에서 파악한 정보:
-- 사용자 이름: {part1_info.get('user_name', 'N/A')}
-- 상담 목적: {part1_info.get('counseling_purpose', 'N/A')}
-- 기본 문제: {part1_info.get('basic_problem', 'N/A')}
-
-Part 2는 사용자의 문제 상황을 깊이 탐색하는 단계입니다. 다음을 고려하여 Task를 생성하세요:
+Part 2는 사용자의 문제 상황을 깊이 탐색하는 단계입니다. 위 대화 내용을 분석하여 다음을 고려하여 Task를 생성하세요:
 
 1. 사용자의 문제 상황을 더 깊이 이해하기 위한 Task
 2. 감정과 경험을 탐색하기 위한 Task
@@ -141,22 +137,70 @@ JSON 형식으로 Task 목록을 반환하세요:
             response = self.llm.invoke(messages)
             response_text = response.content if hasattr(response, 'content') else str(response)
             
+            # 디버깅: LLM 응답 로그
+            logger.info(f"[PART2_TASK] LLM 응답 (처음 1000자): {response_text[:1000]}")
+            
             # JSON 파싱
             import json
             import re
             
-            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            # 여러 방법으로 JSON 배열 찾기
+            json_match = None
+            
+            # 방법 1: 일반적인 JSON 배열 패턴
+            json_match = re.search(r'\[[\s\S]*?\]', response_text, re.DOTALL)
+            
+            # 방법 2: 코드 블록 안의 JSON 찾기
+            if not json_match:
+                code_block_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])', response_text, re.DOTALL)
+                if code_block_match:
+                    json_match = code_block_match
+            
+            # 방법 3: 첫 번째 [ 부터 마지막 ] 까지
+            if not json_match:
+                first_bracket = response_text.find('[')
+                last_bracket = response_text.rfind(']')
+                if first_bracket >= 0 and last_bracket > first_bracket:
+                    json_match = type('obj', (object,), {'group': lambda: response_text[first_bracket:last_bracket+1]})()
+            
             if json_match:
-                tasks = json.loads(json_match.group())
-                # part 필드 확인
-                for task in tasks:
-                    if 'part' not in task:
-                        task['part'] = 2
-                return tasks
-            return []
+                try:
+                    json_text = json_match.group() if hasattr(json_match, 'group') else json_match
+                    # 코드 블록 마커 제거
+                    json_text = re.sub(r'```(?:json)?\s*', '', json_text)
+                    json_text = re.sub(r'```\s*', '', json_text)
+                    json_text = json_text.strip()
+                    
+                    tasks = json.loads(json_text)
+                    
+                    # 리스트인지 확인
+                    if not isinstance(tasks, list):
+                        logger.error(f"[PART2_TASK] 파싱 실패 - 리스트가 아님: {type(tasks)}")
+                        return []
+                    
+                    # part 필드 확인
+                    for task in tasks:
+                        if 'part' not in task:
+                            task['part'] = 2
+                        # status 필드 확인
+                        if 'status' not in task:
+                            task['status'] = 'pending'
+                    logger.info(f"[PART2_TASK] 파싱 성공: {len(tasks)}개 Task 생성됨")
+                    return tasks
+                except json.JSONDecodeError as e:
+                    logger.error(f"[PART2_TASK] JSON 파싱 실패: {str(e)}")
+                    json_text = json_match.group() if hasattr(json_match, 'group') else str(json_match)
+                    logger.error(f"[PART2_TASK] JSON 텍스트: {json_text[:500]}")
+                    return []
+            else:
+                logger.error(f"[PART2_TASK] JSON 배열을 찾을 수 없음")
+                logger.error(f"[PART2_TASK] 전체 응답 텍스트: {response_text}")
+                return []
         
         except Exception as e:
-            print(f"Part 2 Task 생성 오류: {str(e)}")
+            import traceback
+            logger.error(f"[PART2_TASK] Task 생성 오류: {str(e)}")
+            logger.error(f"[PART2_TASK] Traceback: {traceback.format_exc()}")
             return []
     
     def update_part2_tasks(self, conversation_history: List[Dict], current_tasks: List[Dict],

@@ -469,6 +469,9 @@ async function updateSessionInfo() {
         // Supervision 로그 표시
         updateSupervisionLog(session);
         
+        // Task Completion Checker 로그 표시
+        updateCompletionLog(session);
+        
     } catch (error) {
         console.error('세션 정보 업데이트 오류:', error);
     }
@@ -660,6 +663,55 @@ function updateSupervisionLog(session) {
                     <div class="supervision-strengths">
                         <div class="supervision-strengths-text">${strengths}</div>
                     </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function updateCompletionLog(session) {
+    const completionLogEl = document.getElementById('completion-log');
+    const completionLog = session.completion_log || [];
+    
+    if (completionLog.length === 0) {
+        completionLogEl.innerHTML = '<p class="no-data">아직 완료 체크가 없습니다.</p>';
+        return;
+    }
+    
+    // 최근 5개만 표시
+    const recentLogs = completionLog.slice(-5).reverse();
+    
+    completionLogEl.innerHTML = recentLogs.map(log => {
+        const isCompleted = log.is_completed || false;
+        const newStatus = log.new_status || 'None';
+        const completionReason = log.completion_reason || '';
+        const taskId = log.task_id || 'N/A';
+        const rawOutput = log.raw_output || '';
+        
+        // 현재 Task 목록에서 Task 제목 찾기
+        const tasks = session.tasks || [];
+        const task = tasks.find(t => t.id === taskId);
+        const taskTitle = task ? task.title : taskId;
+        
+        return `
+            <div class="completion-item ${isCompleted ? 'completed' : 'not-completed'}">
+                <div class="completion-header">
+                    <span class="completion-status ${isCompleted ? 'yes' : 'no'}">
+                        ${isCompleted ? '✓ 완료' : '✗ 미완료'}
+                    </span>
+                    <span class="completion-task">${taskTitle}</span>
+                </div>
+                ${newStatus && newStatus !== 'None' ? `
+                    <div class="completion-status-info">새 상태: <strong>${newStatus}</strong></div>
+                ` : ''}
+                ${completionReason ? `
+                    <div class="completion-reason">${completionReason}</div>
+                ` : ''}
+                ${rawOutput ? `
+                    <details class="completion-raw">
+                        <summary>원본 출력 보기</summary>
+                        <pre class="completion-raw-text">${rawOutput}</pre>
+                    </details>
                 ` : ''}
             </div>
         `;

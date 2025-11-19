@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import threading
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -220,6 +221,16 @@ class CounselorService:
             # Task 완료 여부 확인
             task_completed = completion_result and completion_result.get('is_completed', False)
             
+            # 디버깅 로그 추가
+            if completion_result:
+                logger.info(f"[TASK_COMPLETION] task_id={completion_result.get('task_id')} | "
+                           f"is_completed={completion_result.get('is_completed')} | "
+                           f"new_status={completion_result.get('new_status')} | "
+                           f"reason={completion_result.get('completion_reason', 'N/A')[:100]}")
+                logger.debug(f"[TASK_COMPLETION_RAW] {completion_result.get('raw_output', 'N/A')[:500]}")
+                # 세션에 로그 저장
+                self.session_service.add_completion_log(conversation_id, completion_result)
+            
             # Task 완료 시 상태 업데이트
             if task_completed and completion_result.get('new_status'):
                 task_id = completion_result.get('task_id')
@@ -251,22 +262,112 @@ class CounselorService:
                 
                 if task_selection:
                     selected_task = task_selection['task']
-                    # 선택된 Task를 current_task로 설정 및 in_progress로 변경
+                    selected_task_status = selected_task.get('status')
+                    
+                    # 선택된 Task를 current_task로 설정
                     self.session_service.set_current_task(conversation_id, selected_task.get('id'))
-                    self.session_service.update_task_status(conversation_id, selected_task.get('id'), 'in_progress')
+                    
+                    # sufficient 상태가 아닐 때만 in_progress로 변경
+                    if selected_task_status != 'sufficient':
+                        self.session_service.update_task_status(conversation_id, selected_task.get('id'), 'in_progress')
+                        # 캐시 업데이트
+                        for task in current_tasks:
+                            if task.get('id') == selected_task.get('id'):
+                                task['status'] = 'in_progress'
+                                break
+                    else:
+                        # sufficient 상태는 그대로 유지
+                        # 캐시만 업데이트
+                        for task in current_tasks:
+                            if task.get('id') == selected_task.get('id'):
+                                # 이미 sufficient 상태이므로 변경하지 않음
+                                break
+                    
                     current_task = selected_task
                     current_task_id = selected_task.get('id')
-                    # 캐시 업데이트
-                    for task in current_tasks:
-                        if task.get('id') == selected_task.get('id'):
-                            task['status'] = 'in_progress'
-                            break
                     session['current_task'] = selected_task.get('id')
                     session['tasks'] = current_tasks
                     self.session_cache[conversation_id] = session
+                else:
+                    # Task를 선택하지 못했다면 Part 전환 체크
+                    # 단, 정말로 모든 Task가 sufficient 이상인지 확인
+                    part_tasks_for_check = [t for t in current_tasks if t.get('part') == current_part]
+                    all_sufficient_or_completed = all(
+                        t.get('status') in ['sufficient', 'completed'] 
+                        for t in part_tasks_for_check
+                    )
+                    
+                    if all_sufficient_or_completed:
+                        # 모든 Task가 sufficient 이상이면 Part 전환 체크
+                        next_part = self.part_manager.check_part_transition(conversation_id)
+                    else:
+                        # 아직 pending이나 in_progress Task가 있으면 Part 전환하지 않음
+                        next_part = None
+                    
+                    if next_part:
+                        # 이전 Part의 sufficient Task들을 completed로 변경
+                        previous_part = current_part
+                        for task in current_tasks:
+                            if task.get('part') == previous_part and task.get('status') == 'sufficient':
+                                self.session_service.update_task_status(conversation_id, task.get('id'), 'completed')
+                                task['status'] = 'completed'
+                        
+                        # Part 전환
+                        self.part_manager.transition_to_part(conversation_id, next_part)
+                        current_part = next_part
+                        
+                        # Part 2 Task 생성
+                        if next_part == 2:
+                            part2_tasks = self.task_planner.create_part2_tasks(conversation_history)
+                            
+                            logger.info(f"[PART_TRANSITION] Part 2 Task 생성: {len(part2_tasks)}개 Task 생성됨")
+                            
+                            if len(part2_tasks) == 0:
+                                logger.warning(f"[PART_TRANSITION] Part 2 Task 생성 실패 - 빈 리스트 반환")
+                                # Task 생성 실패 시에도 current_part는 업데이트하되, 기존 Task 유지
+                                session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
+                                session_ref.update({
+                                    "current_part": next_part,
+                                    "updated_at": datetime.now()
+                                })
+                                session['current_part'] = next_part
+                                self.session_cache[conversation_id] = session
+                            else:
+                                # 기존 Task에 추가
+                                current_tasks = current_tasks + part2_tasks
+                                
+                                # Firestore에 저장 (current_part와 tasks 함께 업데이트)
+                                session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
+                                session_ref.update({
+                                    "current_part": next_part,
+                                    "tasks": current_tasks,
+                                    "updated_at": datetime.now()
+                                })
+                                
+                                logger.info(f"[PART_TRANSITION] Firestore 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
+                                
+                                # 캐시 업데이트
+                                session['current_part'] = next_part
+                                session['tasks'] = current_tasks
+                                self.session_cache[conversation_id] = session
+                                
+                                logger.info(f"[PART_TRANSITION] 캐시 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
+                                
+                                # Part 2의 첫 번째 Task 선택
+                                part2_pending = [t for t in part2_tasks if t.get('status') == 'pending']
+                                if part2_pending:
+                                    first_task = part2_pending[0]
+                                    self.session_service.set_current_task(conversation_id, first_task.get('id'))
+                                    self.session_service.update_task_status(conversation_id, first_task.get('id'), 'in_progress')
+                                    current_task = first_task
+                                    current_task_id = first_task.get('id')
+                                    session['current_task'] = first_task.get('id')
+                                    self.session_cache[conversation_id] = session
+                                    logger.info(f"[PART_TRANSITION] Part 2 첫 번째 Task 선택: {first_task.get('id')}")
             
             # 현재 Task가 없으면 첫 번째 Task 선택
             if not current_task and current_tasks:
+                # completed만 제외 (sufficient는 재선택 가능하지만 우선순위 낮음)
                 part_tasks = [t for t in current_tasks if t.get('part') == current_part and t.get('status') != 'completed']
                 if part_tasks:
                     current_task = part_tasks[0]
@@ -426,10 +527,10 @@ class CounselorService:
                         f"total={total_time:.2f}s | error={str(e)}")
             raise Exception(f"상담 수행 중 오류 발생: {str(e)}")
     
-    def _get_or_create_session(self, conversation_id: str) -> Dict:
+    def _get_or_create_session(self, conversation_id: str, force_refresh: bool = False) -> Dict:
         """세션 가져오기 또는 생성 (캐시 사용)"""
-        # 캐시 확인
-        if conversation_id in self.session_cache:
+        # 강제 새로고침이 아니고 캐시가 있으면 캐시 사용
+        if not force_refresh and conversation_id in self.session_cache:
             return self.session_cache[conversation_id]
         
         # Firestore에서 가져오기
@@ -457,21 +558,32 @@ class CounselorService:
             next_part = self.part_manager.check_part_transition(conversation_id)
             
             if next_part:
+                # 이전 Part의 sufficient Task들을 completed로 변경
+                for task in tasks:
+                    if task.get('part') == current_part and task.get('status') == 'sufficient':
+                        self.session_service.update_task_status(conversation_id, task.get('id'), 'completed')
+                
                 # Part 전환
                 self.part_manager.transition_to_part(conversation_id, next_part)
                 
                 # Part 2 Task 생성
                 if next_part == 2:
-                    # Part 1에서 수집한 정보 추출
-                    part1_info = self._extract_part1_info(conversation_history)
-                    part2_tasks = self.task_planner.create_part2_tasks(conversation_history, part1_info)
-                    # 기존 Task에 추가
-                    current_tasks = tasks + part2_tasks
-                    self.session_service.update_tasks(conversation_id, current_tasks)
-                    # 캐시 업데이트
-                    if conversation_id in self.session_cache:
-                        self.session_cache[conversation_id]['tasks'] = current_tasks
-                        self.session_cache[conversation_id]['current_part'] = 2
+                    part2_tasks = self.task_planner.create_part2_tasks(conversation_history)
+                    logger.info(f"[PART_TRANSITION_ASYNC] Part 2 Task 생성: {len(part2_tasks)}개 Task 생성됨")
+                    
+                    if len(part2_tasks) == 0:
+                        logger.warning(f"[PART_TRANSITION_ASYNC] Part 2 Task 생성 실패 - 빈 리스트 반환")
+                    else:
+                        # 기존 Task에 추가
+                        current_tasks = tasks + part2_tasks
+                        self.session_service.update_tasks(conversation_id, current_tasks)
+                        logger.info(f"[PART_TRANSITION_ASYNC] Firestore 업데이트 완료: tasks_count={len(current_tasks)}")
+                        
+                        # 캐시 업데이트
+                        if conversation_id in self.session_cache:
+                            self.session_cache[conversation_id]['tasks'] = current_tasks
+                            self.session_cache[conversation_id]['current_part'] = 2
+                            logger.info(f"[PART_TRANSITION_ASYNC] 캐시 업데이트 완료: tasks_count={len(current_tasks)}")
                 
                 # Part 3 Task 생성
                 elif next_part == 3:
@@ -492,11 +604,91 @@ class CounselorService:
     
     def _extract_part1_info(self, conversation_history: List[Dict]) -> Dict:
         """Part 1에서 수집한 정보 추출"""
-        # 간단한 추출 (나중에 LLM으로 개선 가능)
+        # 대화 내용에서 기본 정보 추출
+        user_name = "N/A"
+        counseling_purpose = "N/A"
+        basic_problem = "N/A"
+        
+        # 사용자 메시지에서 정보 추출
+        for msg in conversation_history:
+            if msg.get('role') == 'user':
+                content = msg.get('content', '').lower()
+                
+                # 이름 추출 시도 (간단한 패턴 매칭)
+                if '이름' in content or '저는' in content or '제 이름' in content:
+                    # 이름 패턴 찾기 (한글 이름 2-4자)
+                    name_match = re.search(r'(?:이름|저는|제 이름)[은는이가]?\s*([가-힣]{2,4})', content)
+                    if name_match:
+                        user_name = name_match.group(1)
+                
+                # 상담 목적 추출
+                if '상담' in content or '도움' in content or '문제' in content or '고민' in content:
+                    # 상담 목적 관련 문장 추출
+                    purpose_keywords = ['상담', '도움', '조언', '상담받', '상담하']
+                    for keyword in purpose_keywords:
+                        if keyword in content:
+                            # 해당 문장 추출 (최대 100자)
+                            sentences = re.split(r'[.!?]', content)
+                            for sentence in sentences:
+                                if keyword in sentence:
+                                    counseling_purpose = sentence.strip()[:100]
+                                    break
+                            break
+                
+                # 기본 문제 추출
+                problem_keywords = ['문제', '고민', '힘들', '어려', '스트레스', '불안', '우울', '무기력']
+                for keyword in problem_keywords:
+                    if keyword in content:
+                        # 해당 문장 추출 (최대 150자)
+                        sentences = re.split(r'[.!?]', content)
+                        for sentence in sentences:
+                            if keyword in sentence:
+                                basic_problem = sentence.strip()[:150]
+                                break
+                        break
+        
+        # 대화 요약에서 더 많은 정보 추출 시도
+        if user_name == "N/A" or counseling_purpose == "N/A" or basic_problem == "N/A":
+            # 최근 사용자 메시지들을 합쳐서 요약
+            recent_user_messages = [msg.get('content', '') for msg in conversation_history[-5:] if msg.get('role') == 'user']
+            combined_text = ' '.join(recent_user_messages)
+            
+            if user_name == "N/A" and len(combined_text) > 0:
+                # 이름 패턴 다시 찾기
+                name_patterns = [
+                    r'(?:저는|제 이름은|이름은)\s*([가-힣]{2,4})',
+                    r'([가-힣]{2,4})(?:이라고|입니다|이에요)',
+                ]
+                for pattern in name_patterns:
+                    match = re.search(pattern, combined_text)
+                    if match:
+                        user_name = match.group(1)
+                        break
+            
+            if counseling_purpose == "N/A" and len(combined_text) > 0:
+                # 상담 목적 관련 문장 찾기
+                if '상담' in combined_text or '도움' in combined_text:
+                    # 첫 번째 관련 문장 추출
+                    sentences = re.split(r'[.!?]', combined_text)
+                    for sentence in sentences:
+                        if '상담' in sentence or '도움' in sentence:
+                            counseling_purpose = sentence.strip()[:100]
+                            break
+            
+            if basic_problem == "N/A" and len(combined_text) > 0:
+                # 문제 관련 문장 찾기
+                problem_sentences = []
+                for msg in recent_user_messages:
+                    if any(keyword in msg.lower() for keyword in ['문제', '고민', '힘들', '어려', '스트레스', '불안', '우울', '무기력']):
+                        problem_sentences.append(msg[:150])
+                
+                if problem_sentences:
+                    basic_problem = problem_sentences[0]
+        
         return {
-            "user_name": "N/A",
-            "counseling_purpose": "N/A",
-            "basic_problem": "N/A"
+            "user_name": user_name,
+            "counseling_purpose": counseling_purpose,
+            "basic_problem": basic_problem
         }
     
     def _run_supervision_async(self, conversation_id: str, message: str, 

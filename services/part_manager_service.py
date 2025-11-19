@@ -1,5 +1,6 @@
 """Part Manager Service - Part 관리 및 전환"""
 from typing import Dict, List, Optional
+from datetime import datetime
 from services.session_service import SessionService
 
 
