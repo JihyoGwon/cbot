@@ -24,15 +24,15 @@ class SessionService:
         session_data = {
             "conversation_id": conversation_id,
             "session_type": session_type,
-            "status": "active",
+            "status": "active",  # active, wrapping_up, completed
             "created_at": datetime.now(),
             "updated_at": datetime.now(),
-            "tasks": [],
-            "completed_tasks": [],
+            "tasks": [],  # 모든 상태의 task 포함 (completed 포함)
             "current_task": None,
             "user_info": {},
             "goals": [],
             "supervision_log": [],
+            "session_manager_log": [],  # Session Manager 평가 로그
             "message_count": 0
         }
         
@@ -67,31 +67,72 @@ class SessionService:
             "updated_at": datetime.now()
         })
     
-    def complete_task(self, conversation_id: str, task_id: str) -> None:
-        """Task 완료 처리"""
+    def update_task_status(self, conversation_id: str, task_id: str, status: str) -> None:
+        """
+        Task 상태 업데이트
+        
+        Args:
+            conversation_id: 대화 ID
+            task_id: Task ID
+            status: 새로운 상태 (pending, in_progress, sufficient, completed)
+        """
         session = self.get_session(conversation_id)
         if not session:
             return
         
         tasks = session.get("tasks", [])
-        completed_tasks = session.get("completed_tasks", [])
         
         # Task 찾기
         task = next((t for t in tasks if t.get("id") == task_id), None)
         if task:
-            task["completed_at"] = datetime.now().isoformat()
-            completed_tasks.append(task)
+            task["status"] = status
             
-            # tasks에서 제거
-            tasks = [t for t in tasks if t.get("id") != task_id]
+            # 상태별 타임스탬프 업데이트
+            if status == "sufficient" and not task.get("sufficient_at"):
+                task["sufficient_at"] = datetime.now().isoformat()
+            elif status == "completed" and not task.get("completed_at"):
+                task["completed_at"] = datetime.now().isoformat()
+            
+            # tasks 리스트 업데이트
+            tasks = [t if t.get("id") != task_id else task for t in tasks]
             
             session_ref = self.firestore.db.collection("sessions").document(conversation_id)
             session_ref.update({
                 "tasks": tasks,
-                "completed_tasks": completed_tasks,
-                "current_task": None,
                 "updated_at": datetime.now()
             })
+    
+    def update_session_status(self, conversation_id: str, status: str) -> None:
+        """
+        세션 상태 업데이트
+        
+        Args:
+            conversation_id: 대화 ID
+            status: 새로운 상태 (active, wrapping_up, completed)
+        """
+        session_ref = self.firestore.db.collection("sessions").document(conversation_id)
+        session_ref.update({
+            "status": status,
+            "updated_at": datetime.now()
+        })
+    
+    def add_session_manager_log(self, conversation_id: str, evaluation: Dict) -> None:
+        """Session Manager 평가 로그 추가"""
+        session = self.get_session(conversation_id)
+        if not session:
+            return
+        
+        session_manager_log = session.get("session_manager_log", [])
+        session_manager_log.append({
+            **evaluation,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        session_ref = self.firestore.db.collection("sessions").document(conversation_id)
+        session_ref.update({
+            "session_manager_log": session_manager_log,
+            "updated_at": datetime.now()
+        })
     
     def add_supervision_log(self, conversation_id: str, feedback: Dict) -> None:
         """Supervision 피드백 로그 추가"""

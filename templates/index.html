@@ -31,6 +31,15 @@
                 </div>
                 
                 <div class="sidebar-content">
+                    <!-- 세션 상태 및 진행도 -->
+                    <div class="info-section">
+                        <h4>📊 세션 상태</h4>
+                        <div id="session-status" class="session-status">
+                            <p class="no-task">세션 정보를 불러오는 중...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 현재 Task -->
                     <div class="info-section">
                         <h4>📋 현재 Task</h4>
                         <div id="current-task" class="current-task">
@@ -38,6 +47,7 @@
                         </div>
                     </div>
                     
+                    <!-- Task 목록 (상태별 구분) -->
                     <div class="info-section">
                         <h4>✅ Task 목록</h4>
                         <div id="task-list" class="task-list">
@@ -45,13 +55,7 @@
                         </div>
                     </div>
                     
-                    <div class="info-section">
-                        <h4>🎯 완료된 Task</h4>
-                        <div id="completed-tasks" class="completed-tasks">
-                            <p class="no-task">완료된 task가 없습니다.</p>
-                        </div>
-                    </div>
-                    
+                    <!-- Supervision 로그 -->
                     <div class="info-section">
                         <h4>👁️ Supervision</h4>
                         <div id="supervision-log" class="supervision-log">

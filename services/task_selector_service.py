@@ -43,16 +43,22 @@ class TaskSelectorService:
     def select_next_task(self, conversation_history: List[Dict], 
                         available_tasks: List[Dict]) -> Optional[Dict]:
         """
-        다음 실행할 task 선택
+        다음 실행할 task 선택 (상태 기반 필터링)
         
         Args:
             conversation_history: 대화 기록
-            available_tasks: 사용 가능한 task 목록
+            available_tasks: 사용 가능한 task 목록 (모든 상태 포함)
             
         Returns:
             선택된 task와 실행 가이드
         """
         if not available_tasks:
+            return None
+        
+        # completed 상태의 task는 제외
+        selectable_tasks = [t for t in available_tasks if t.get('status') != 'completed']
+        
+        if not selectable_tasks:
             return None
         
         try:
@@ -63,15 +69,15 @@ class TaskSelectorService:
                 for msg in recent_messages
             ])
             
-            # 사용 가능한 task 목록 (Module 정보 포함)
+            # 사용 가능한 task 목록 (상태 정보 포함)
             tasks_info = "\n".join([
-                f"- [{t.get('priority', 'medium')}] {t.get('id')}: {t.get('title')} (Module: {t.get('module_id', 'N/A')}) - {t.get('description')}"
-                for t in available_tasks
+                f"- [{t.get('priority', 'medium')}] [{t.get('status', 'pending')}] {t.get('id')}: {t.get('title')} (Module: {t.get('module_id', 'N/A')}) - {t.get('description')}"
+                for t in selectable_tasks
             ])
             
             # Task별 Module 가이드라인 수집
             module_guidelines_map = {}
-            for task in available_tasks:
+            for task in selectable_tasks:
                 module_id = task.get('module_id')
                 if module_id:
                     module = self.module_service.get_module(module_id)
@@ -81,8 +87,14 @@ class TaskSelectorService:
             prompt = f"""현재 대화 상황:
 {conversation_context}
 
-사용 가능한 task 목록:
+사용 가능한 task 목록 (상태 정보 포함):
 {tasks_info}
+
+**선택 기준:**
+1. 상태 우선순위: pending > in_progress > sufficient (completed는 제외됨)
+2. 우선순위: high > medium > low
+3. 현재 대화 맥락과 자연스럽게 연결되는 task
+4. 사용자의 현재 감정 상태와 요구사항 반영
 
 위 task 중에서 현재 상황에 가장 적합한 task를 선택하고, 해당 task의 Module 가이드라인을 참고하여 구체적인 실행 가이드를 제공하세요.
 
@@ -109,7 +121,7 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가�
                     execution_guide = line.split('EXECUTION_GUIDE:')[1].strip()
             
             # Task 찾기
-            selected_task = next((t for t in available_tasks if t.get('id') == selected_task_id), None)
+            selected_task = next((t for t in selectable_tasks if t.get('id') == selected_task_id), None)
             
             if selected_task:
                 # Module 가이드라인 가져오기
@@ -128,20 +140,25 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가�
                     "module_id": module_id
                 }
             else:
-                # 선택 실패 시 우선순위가 높은 첫 번째 task 반환
-                high_priority_tasks = [t for t in available_tasks if t.get('priority') == 'high']
-                if high_priority_tasks:
-                    task = high_priority_tasks[0]
-                    module_id = task.get('module_id')
-                    module_guidelines = ""
-                    if module_id:
-                        module_guidelines = self.module_service.get_module_guidelines(module_id)
-                    return {
-                        "task": task,
-                        "execution_guide": module_guidelines or task.get('target', ''),
-                        "module_id": module_id
-                    }
-                task = available_tasks[0]
+                # 선택 실패 시 상태와 우선순위 기반으로 선택
+                # pending 상태 중 high priority 우선
+                pending_high = [t for t in selectable_tasks if t.get('status') == 'pending' and t.get('priority') == 'high']
+                if pending_high:
+                    task = pending_high[0]
+                else:
+                    # pending 상태 중 아무거나
+                    pending_tasks = [t for t in selectable_tasks if t.get('status') == 'pending']
+                    if pending_tasks:
+                        task = pending_tasks[0]
+                    else:
+                        # in_progress 상태
+                        in_progress_tasks = [t for t in selectable_tasks if t.get('status') == 'in_progress']
+                        if in_progress_tasks:
+                            task = in_progress_tasks[0]
+                        else:
+                            # sufficient 상태
+                            task = selectable_tasks[0]
+                
                 module_id = task.get('module_id')
                 module_guidelines = ""
                 if module_id:
@@ -154,9 +171,9 @@ EXECUTION_GUIDE: [구체적인 실행 가이드 - 선택한 task의 Module 가�
             
         except Exception as e:
             print(f"Task 선택 오류: {str(e)}")
-            # 오류 시 첫 번째 task 반환
-            if available_tasks:
-                task = available_tasks[0]
+            # 오류 시 첫 번째 selectable task 반환
+            if selectable_tasks:
+                task = selectable_tasks[0]
                 module_id = task.get('module_id')
                 module_guidelines = ""
                 if module_id:

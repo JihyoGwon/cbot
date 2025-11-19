@@ -178,19 +178,6 @@ def get_session(conversation_id):
                         'description': module.get('description')
                     }
         
-        # 완료된 task에도 module 정보 추가
-        completed_tasks = session.get('completed_tasks', [])
-        for task in completed_tasks:
-            module_id = task.get('module_id')
-            if module_id:
-                module = module_service.get_module(module_id)
-                if module:
-                    task['module'] = {
-                        'id': module.get('id'),
-                        'name': module.get('name'),
-                        'description': module.get('description')
-                    }
-        
         return jsonify(session), 200
         
     except Exception as e:
