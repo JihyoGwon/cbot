@@ -299,12 +299,17 @@ function updateCurrentTask(session) {
     const currentTask = tasks.find(t => t.id === currentTaskId);
     
     if (currentTask) {
+        const moduleInfo = currentTask.module ? 
+            `<div class="task-module">🔧 Module: ${currentTask.module.name || currentTask.module.id}</div>` : 
+            (currentTask.module_id ? `<div class="task-module">🔧 Module: ${currentTask.module_id}</div>` : '');
+        
         currentTaskEl.innerHTML = `
             <div class="task-title">${currentTask.title || currentTask.id}</div>
             <div class="task-description">${currentTask.description || ''}</div>
+            ${moduleInfo}
             <div class="task-meta">
                 <span class="task-priority ${currentTask.priority || 'medium'}">${currentTask.priority || 'medium'}</span>
-                <span>${currentTask.type || ''}</span>
+                ${currentTask.target ? `<div class="task-target">목표: ${currentTask.target}</div>` : ''}
             </div>
         `;
     } else {
@@ -325,13 +330,17 @@ function updateTaskList(session) {
     
     taskListEl.innerHTML = tasks.map(task => {
         const isCurrent = task.id === currentTaskId;
+        const moduleInfo = task.module ? 
+            `<div class="task-module">🔧 ${task.module.name || task.module.id}</div>` : 
+            (task.module_id ? `<div class="task-module">🔧 ${task.module_id}</div>` : '');
+        
         return `
             <div class="task-item ${isCurrent ? 'current' : ''}">
                 <div class="task-title">${task.title || task.id}</div>
                 <div class="task-description">${task.description || ''}</div>
+                ${moduleInfo}
                 <div class="task-meta">
                     <span class="task-priority ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
-                    <span>${task.type || ''}</span>
                     ${isCurrent ? '<span style="color: #667eea; font-weight: 600;">진행 중</span>' : ''}
                 </div>
             </div>
@@ -350,10 +359,15 @@ function updateCompletedTasks(session) {
     }
     
     completedTasksEl.innerHTML = completedTasks.map(task => {
+        const moduleInfo = task.module ? 
+            `<div class="task-module">🔧 ${task.module.name || task.module.id}</div>` : 
+            (task.module_id ? `<div class="task-module">🔧 ${task.module_id}</div>` : '');
+        
         return `
             <div class="task-item completed">
                 <div class="task-title">${task.title || task.id}</div>
                 <div class="task-description">${task.description || ''}</div>
+                ${moduleInfo}
                 <div class="task-meta">
                     <span class="task-priority ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
                     <span>완료됨</span>

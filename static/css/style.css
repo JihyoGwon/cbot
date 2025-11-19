@@ -383,11 +383,27 @@ body {
     margin-bottom: 6px;
 }
 
+.task-module {
+    font-size: 11px;
+    color: #667eea;
+    font-weight: 500;
+    margin-bottom: 4px;
+    padding: 2px 0;
+}
+
+.task-target {
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+}
+
 .task-meta {
     display: flex;
     gap: 8px;
     font-size: 11px;
     color: #999;
+    flex-wrap: wrap;
 }
 
 .task-priority {

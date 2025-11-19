@@ -128,7 +128,10 @@ def get_session(conversation_id):
     """상담 세션 정보 가져오기"""
     try:
         from services.session_service import SessionService
+        from services.module_service import ModuleService
+        
         session_service = SessionService()
+        module_service = ModuleService()
         
         session = session_service.get_session(conversation_id)
         
@@ -140,6 +143,32 @@ def get_session(conversation_id):
         for key in ['created_at', 'updated_at']:
             if key in session and isinstance(session[key], datetime):
                 session[key] = session[key].isoformat()
+        
+        # Task에 module 정보 추가
+        tasks = session.get('tasks', [])
+        for task in tasks:
+            module_id = task.get('module_id')
+            if module_id:
+                module = module_service.get_module(module_id)
+                if module:
+                    task['module'] = {
+                        'id': module.get('id'),
+                        'name': module.get('name'),
+                        'description': module.get('description')
+                    }
+        
+        # 완료된 task에도 module 정보 추가
+        completed_tasks = session.get('completed_tasks', [])
+        for task in completed_tasks:
+            module_id = task.get('module_id')
+            if module_id:
+                module = module_service.get_module(module_id)
+                if module:
+                    task['module'] = {
+                        'id': module.get('id'),
+                        'name': module.get('name'),
+                        'description': module.get('description')
+                    }
         
         return jsonify(session), 200
         

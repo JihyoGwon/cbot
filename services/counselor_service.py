@@ -11,6 +11,7 @@ from services.task_planner_service import TaskPlannerService
 from services.task_selector_service import TaskSelectorService
 from services.supervisor_service import SupervisorService
 from services.session_service import SessionService
+from services.module_service import ModuleService
 
 # 로깅 설정 (콘솔 + 파일)
 import os
@@ -58,6 +59,7 @@ class CounselorService:
             project=Config.PROJECT_ID,
             location=Config.LOCATION,
             temperature=0.8,  # 자연스러운 대화
+            max_output_tokens=500,  # 응답 길이 제한 (약 300-400자 정도)
             model_kwargs={"thinking_budget": 0}  # Think budget을 0으로 설정하여 빠른 응답
         )
         
@@ -66,6 +68,7 @@ class CounselorService:
         self.task_selector = TaskSelectorService()
         self.supervisor = SupervisorService()
         self.session_service = SessionService()
+        self.module_service = ModuleService()
         
         # Supervision 주기 설정 (N개 메시지마다)
         self.supervision_interval = Config.SUPERVISION_INTERVAL
@@ -80,19 +83,33 @@ class CounselorService:
         self.executor = ThreadPoolExecutor(max_workers=3)
     
     def get_counselor_prompt(self, current_task: Optional[Dict] = None, 
-                            execution_guide: str = "") -> str:
+                            execution_guide: str = "", module_id: Optional[str] = None) -> str:
         """메인 상담사 시스템 프롬프트"""
         base_prompt = Config.SYSTEM_PROMPT
         
         if current_task:
+            # Module 가이드라인 가져오기
+            module_guidelines = ""
+            if module_id:
+                module_guidelines = self.module_service.get_module_guidelines(module_id)
+            
             task_guidance = f"""
 
 현재 수행해야 할 task:
 - 제목: {current_task.get('title', '')}
 - 설명: {current_task.get('description', '')}
-- 실행 가이드: {execution_guide if execution_guide else current_task.get('guide', '')}
-
-위 task를 달성하기 위해 대화를 진행하세요. 자연스럽게 task를 수행하면서 사용자와의 대화를 이어가세요."""
+- 목표: {current_task.get('target', '')}
+- 실행 가이드: {execution_guide if execution_guide else current_task.get('target', '')}
+"""
+            
+            if module_guidelines:
+                task_guidance += f"""
+사용할 Module 가이드라인:
+{module_guidelines}
+"""
+            
+            task_guidance += "\n위 task를 달성하기 위해 대화를 진행하세요. 자연스럽게 task를 수행하면서 사용자와의 대화를 이어가세요."
+            
             return base_prompt + task_guidance
         
         return base_prompt
@@ -195,9 +212,10 @@ class CounselorService:
             t0 = time.time()
             current_task = task_selection['task'] if task_selection else None
             execution_guide = task_selection['execution_guide'] if task_selection else ""
+            module_id = task_selection.get('module_id') if task_selection else None
             
             messages = []
-            messages.append(('system', self.get_counselor_prompt(current_task, execution_guide)))
+            messages.append(('system', self.get_counselor_prompt(current_task, execution_guide, module_id)))
             
             # 대화 기록 추가
             if conversation_history:
