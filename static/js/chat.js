@@ -184,6 +184,7 @@ function addMessage(role, content, messageIndex = null) {
         contentDiv.addEventListener('click', () => showPrompt(messageIndex));
     }
     
+    // 시간 표시 (말풍선 바깥)
     const timeDiv = document.createElement('div');
     timeDiv.className = 'message-time';
     timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', { 
@@ -191,6 +192,7 @@ function addMessage(role, content, messageIndex = null) {
         minute: '2-digit' 
     });
     
+    // 말풍선과 시간을 메시지 컨테이너에 추가
     messageDiv.appendChild(contentDiv);
     messageDiv.appendChild(timeDiv);
     
@@ -221,7 +223,7 @@ async function showPrompt(messageIndex) {
         const prompt = data.prompt || '프롬프트 정보가 없습니다.';
         
         // 모달 창으로 프롬프트 표시
-        showPromptModal(prompt, data.current_task, data.tasks_remaining, data.supervision);
+        showPromptModal(prompt, data.current_task, data.current_part, data.current_module, data.supervision);
         
     } catch (error) {
         console.error('프롬프트 가져오기 오류:', error);
@@ -230,7 +232,7 @@ async function showPrompt(messageIndex) {
 }
 
 // 프롬프트 모달 표시
-function showPromptModal(prompt, currentTask, tasksRemaining, supervision) {
+function showPromptModal(prompt, currentTask, currentPart, currentModule, supervision) {
     // 기존 모달이 있으면 제거
     const existingModal = document.getElementById('prompt-modal');
     if (existingModal) {
@@ -255,8 +257,9 @@ function showPromptModal(prompt, currentTask, tasksRemaining, supervision) {
     const info = document.createElement('div');
     info.className = 'prompt-modal-info';
     let infoHtml = `
-        <div>현재 Task: ${currentTask || 'N/A'}</div>
-        <div>남은 Tasks: ${tasksRemaining || 0}</div>
+        <div>Part: ${currentPart || 'N/A'}</div>
+        <div>Task: ${currentTask || 'N/A'}</div>
+        <div>Module: ${currentModule || 'N/A'}</div>
     `;
     
     // Supervision 정보 추가
@@ -268,8 +271,8 @@ function showPromptModal(prompt, currentTask, tasksRemaining, supervision) {
     
     info.innerHTML = infoHtml;
     
-    const promptText = document.createElement('pre');
-    promptText.className = 'prompt-modal-text';
+    const promptText = document.createElement('div');
+    promptText.className = 'prompt-text';
     promptText.textContent = prompt;
     
     modalContent.appendChild(header);
@@ -421,13 +424,13 @@ async function updateSessionInfo() {
         
         const session = await response.json();
         
-        // 세션 상태 및 진행도 표시
-        updateSessionStatus(session);
+        // Part 진행 상태 표시
+        updatePartProgress(session);
         
-        // 현재 task 표시
-        updateCurrentTask(session);
+        // 현재 상태 표시 (Part, Task, Module)
+        updateCurrentStatus(session);
         
-        // Task 목록 표시 (상태별 구분)
+        // Task 목록 표시 (Part별 구분)
         updateTaskList(session);
         
         // Supervision 로그 표시
@@ -438,187 +441,143 @@ async function updateSessionInfo() {
     }
 }
 
-// 세션 상태 및 진행도 업데이트
-function updateSessionStatus(session) {
-    const sessionStatusEl = document.getElementById('session-status');
-    const status = session.status || 'active';
-    const sessionManagerLog = session.session_manager_log || [];
-    const recentEvaluation = sessionManagerLog[sessionManagerLog.length - 1];
+// Part 진행 상태 업데이트
+function updatePartProgress(session) {
+    const partProgressEl = document.getElementById('part-progress');
+    const currentPart = session.current_part || 1;
     
-    let statusHtml = '';
+    // 모든 Part 스텝 초기화
+    const partSteps = partProgressEl.querySelectorAll('.part-step');
+    const connectors = partProgressEl.querySelectorAll('.part-step-connector');
     
-    // 세션 상태 배지
-    let statusBadge = '';
-    let statusColor = '';
-    if (status === 'active') {
-        statusBadge = '진행 중';
-        statusColor = '#667eea';
-    } else if (status === 'wrapping_up') {
-        statusBadge = '마무리 중';
-        statusColor = '#f59e0b';
-    } else if (status === 'completed') {
-        statusBadge = '완료됨';
-        statusColor = '#10b981';
-    }
-    
-    statusHtml += `
-        <div class="session-status-badge" style="background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor};">
-            <span style="font-weight: 600;">${statusBadge}</span>
-        </div>
-    `;
-    
-    // Session Manager 평가 결과
-    if (recentEvaluation) {
-        const completionScore = recentEvaluation.completion_score || 0;
-        const recommendation = recentEvaluation.recommendation || 'continue';
+    partSteps.forEach((step, index) => {
+        const partNum = index + 1;
+        step.classList.remove('active', 'completed');
         
-        statusHtml += `
-            <div class="session-progress">
-                <div class="progress-header">
-                    <span>첫 회기 목표 달성도</span>
-                    <span class="progress-score">${(completionScore * 100).toFixed(0)}%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${completionScore * 100}%; background: ${completionScore >= 0.7 ? '#10b981' : completionScore >= 0.5 ? '#f59e0b' : '#ef4444'};"></div>
-                </div>
-                <div class="progress-details">
-                    <div class="progress-item">
-                        <span>관계 형성</span>
-                        <span>${(recentEvaluation.rapport_building * 100 || 0).toFixed(0)}%</span>
-                    </div>
-                    <div class="progress-item">
-                        <span>정보 수집</span>
-                        <span>${(recentEvaluation.information_gathering * 100 || 0).toFixed(0)}%</span>
-                    </div>
-                    <div class="progress-item">
-                        <span>목표 설정</span>
-                        <span>${(recentEvaluation.goal_setting * 100 || 0).toFixed(0)}%</span>
-                    </div>
-                    <div class="progress-item">
-                        <span>신뢰 구축</span>
-                        <span>${(recentEvaluation.trust_building * 100 || 0).toFixed(0)}%</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    sessionStatusEl.innerHTML = statusHtml || '<p class="no-task">세션 정보가 없습니다.</p>';
+        if (partNum < currentPart) {
+            step.classList.add('completed');
+            if (connectors[index]) {
+                connectors[index].classList.add('completed');
+            }
+        } else if (partNum === currentPart) {
+            step.classList.add('active');
+        }
+    });
 }
 
-// 현재 task 업데이트
-function updateCurrentTask(session) {
-    const currentTaskEl = document.getElementById('current-task');
+// 현재 상태 업데이트 (Part, Task, Module)
+function updateCurrentStatus(session) {
+    const currentPartEl = document.getElementById('current-part');
+    const currentTaskTitleEl = document.getElementById('current-task-title');
+    const currentModuleEl = document.getElementById('current-module');
+    
+    const currentPart = session.current_part || 1;
     const currentTaskId = session.current_task;
+    const currentModuleId = session.current_module;
     const tasks = session.tasks || [];
     
-    const currentTask = tasks.find(t => t.id === currentTaskId);
+    // Part 표시
+    currentPartEl.textContent = `Part ${currentPart}`;
     
+    // Task 표시
+    const currentTask = tasks.find(t => t.id === currentTaskId);
     if (currentTask) {
-        const moduleInfo = currentTask.module ? 
-            `<div class="task-module">🔧 Module: ${currentTask.module.name || currentTask.module.id}</div>` : 
-            (currentTask.module_id ? `<div class="task-module">🔧 Module: ${currentTask.module_id}</div>` : '');
-        
-        const taskStatus = currentTask.status || 'pending';
-        const statusBadge = getStatusBadge(taskStatus);
-        
-        currentTaskEl.innerHTML = `
-            <div class="task-title">${currentTask.title || currentTask.id}</div>
-            <div class="task-description">${currentTask.description || ''}</div>
-            ${moduleInfo}
-            <div class="task-meta">
-                <span class="task-priority ${currentTask.priority || 'medium'}">${currentTask.priority || 'medium'}</span>
-                ${statusBadge}
-                ${currentTask.target ? `<div class="task-target">목표: ${currentTask.target}</div>` : ''}
-            </div>
-        `;
+        currentTaskTitleEl.textContent = currentTask.title || currentTask.id;
     } else {
-        currentTaskEl.innerHTML = '<p class="no-task">아직 task가 없습니다.</p>';
+        currentTaskTitleEl.textContent = '-';
+    }
+    
+    // Module 표시
+    if (currentModuleId) {
+        currentModuleEl.textContent = currentModuleId;
+    } else {
+        currentModuleEl.textContent = '-';
     }
 }
 
-// Task 목록 업데이트 (상태별 구분)
+
+// Task 목록 업데이트 (Part별 구분)
 function updateTaskList(session) {
     const taskListEl = document.getElementById('task-list');
     const tasks = session.tasks || [];
     const currentTaskId = session.current_task;
     
     if (tasks.length === 0) {
-        taskListEl.innerHTML = '<p class="no-task">task가 없습니다.</p>';
+        taskListEl.innerHTML = '<p class="no-data">task가 없습니다.</p>';
         return;
     }
     
-    // 상태별로 Task 분류
-    const tasksByStatus = {
-        pending: tasks.filter(t => t.status === 'pending'),
-        in_progress: tasks.filter(t => t.status === 'in_progress'),
-        sufficient: tasks.filter(t => t.status === 'sufficient'),
-        completed: tasks.filter(t => t.status === 'completed')
+    // Part별로 Task 분류
+    const tasksByPart = {
+        1: tasks.filter(t => t.part === 1),
+        2: tasks.filter(t => t.part === 2),
+        3: tasks.filter(t => t.part === 3)
     };
     
     let html = '';
     
-    // pending 상태 Task
-    if (tasksByStatus.pending.length > 0) {
-        html += '<div class="task-status-group"><div class="task-status-header">⏳ 대기 중</div>';
-        html += tasksByStatus.pending.map(task => renderTaskItem(task, currentTaskId)).join('');
+    // Part 1 Task
+    if (tasksByPart[1].length > 0) {
+        html += '<div class="task-group part-1">';
+        html += '<div class="task-group-header">Part 1: 시작</div>';
+        html += tasksByPart[1].map(task => renderTaskItem(task, currentTaskId)).join('');
         html += '</div>';
     }
     
-    // in_progress 상태 Task
-    if (tasksByStatus.in_progress.length > 0) {
-        html += '<div class="task-status-group"><div class="task-status-header">🔄 진행 중</div>';
-        html += tasksByStatus.in_progress.map(task => renderTaskItem(task, currentTaskId)).join('');
+    // Part 2 Task
+    if (tasksByPart[2].length > 0) {
+        html += '<div class="task-group part-2">';
+        html += '<div class="task-group-header">Part 2: 탐색</div>';
+        html += tasksByPart[2].map(task => renderTaskItem(task, currentTaskId)).join('');
         html += '</div>';
     }
     
-    // sufficient 상태 Task
-    if (tasksByStatus.sufficient.length > 0) {
-        html += '<div class="task-status-group"><div class="task-status-header">✓ 충분히 다뤘음</div>';
-        html += tasksByStatus.sufficient.map(task => renderTaskItem(task, currentTaskId)).join('');
+    // Part 3 Task
+    if (tasksByPart[3].length > 0) {
+        html += '<div class="task-group part-3">';
+        html += '<div class="task-group-header">Part 3: 마무리</div>';
+        html += tasksByPart[3].map(task => renderTaskItem(task, currentTaskId)).join('');
         html += '</div>';
     }
     
-    // completed 상태 Task
-    if (tasksByStatus.completed.length > 0) {
-        html += '<div class="task-status-group"><div class="task-status-header">✅ 완료됨</div>';
-        html += tasksByStatus.completed.map(task => renderTaskItem(task, currentTaskId)).join('');
+    // Part 정보가 없는 Task (기존 데이터 호환성)
+    const tasksWithoutPart = tasks.filter(t => !t.part || ![1, 2, 3].includes(t.part));
+    if (tasksWithoutPart.length > 0) {
+        html += '<div class="task-group">';
+        html += '<div class="task-group-header">기타</div>';
+        html += tasksWithoutPart.map(task => renderTaskItem(task, currentTaskId)).join('');
         html += '</div>';
     }
     
-    // 상태가 없는 Task (기존 데이터 호환성)
-    const tasksWithoutStatus = tasks.filter(t => !t.status || !['pending', 'in_progress', 'sufficient', 'completed'].includes(t.status));
-    if (tasksWithoutStatus.length > 0) {
-        html += '<div class="task-status-group"><div class="task-status-header">📋 기타</div>';
-        html += tasksWithoutStatus.map(task => renderTaskItem(task, currentTaskId)).join('');
-        html += '</div>';
-    }
-    
-    taskListEl.innerHTML = html || '<p class="no-task">task가 없습니다.</p>';
+    taskListEl.innerHTML = html || '<p class="no-data">task가 없습니다.</p>';
 }
 
 // Task 아이템 렌더링 헬퍼 함수
 function renderTaskItem(task, currentTaskId) {
     const isCurrent = task.id === currentTaskId;
     const taskStatus = task.status || 'pending';
-    const moduleInfo = task.module ? 
-        `<div class="task-module">🔧 ${task.module.name || task.module.id}</div>` : 
-        (task.module_id ? `<div class="task-module">🔧 ${task.module_id}</div>` : '');
-    
     const statusBadge = getStatusBadge(taskStatus);
     
     return `
-        <div class="task-item ${isCurrent ? 'current' : ''} status-${taskStatus}">
-            <div class="task-title">${task.title || task.id}</div>
-            <div class="task-description">${task.description || ''}</div>
-            ${moduleInfo}
-            <div class="task-meta">
-                <span class="task-priority ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
-                ${statusBadge}
-                ${isCurrent ? '<span class="current-badge">현재 진행</span>' : ''}
+        <div class="task-item ${isCurrent ? 'current' : ''}">
+            <div class="task-item-header">
+                <div class="task-title">${task.title || task.id}</div>
+                <span class="task-status-badge ${taskStatus}">${getStatusText(taskStatus)}</span>
             </div>
+            ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
         </div>
     `;
+}
+
+// 상태 텍스트 변환
+function getStatusText(status) {
+    const statusMap = {
+        'pending': '대기',
+        'in_progress': '진행',
+        'sufficient': '충분',
+        'completed': '완료'
+    };
+    return statusMap[status] || status;
 }
 
 // 상태 배지 생성 헬퍼 함수
@@ -639,7 +598,7 @@ function updateSupervisionLog(session) {
     const supervisionLog = session.supervision_log || [];
     
     if (supervisionLog.length === 0) {
-        supervisionLogEl.innerHTML = '<p class="no-task">아직 supervision이 없습니다.</p>';
+        supervisionLogEl.innerHTML = '<p class="no-data">아직 supervision이 없습니다.</p>';
         return;
     }
     
@@ -648,21 +607,27 @@ function updateSupervisionLog(session) {
     
     supervisionLogEl.innerHTML = recentLogs.map(log => {
         const score = log.score || 7;
-        const isGood = score >= 7;
+        const scoreClass = score >= 8 ? 'high' : score >= 6 ? 'medium' : 'low';
         const feedback = log.feedback || '';
         const improvements = log.improvements || '';
         const strengths = log.strengths || '';
         
         return `
-            <div class="supervision-item ${isGood ? 'good' : 'needs-improvement'}">
-                <div class="supervision-score ${isGood ? 'good' : 'needs-improvement'}">
-                    점수: ${score}/10
+            <div class="supervision-item ${score < 7 ? 'has-improvement' : 'good'}">
+                <div class="supervision-header">
+                    <span class="supervision-score ${scoreClass}">${score}/10</span>
                 </div>
-                <div class="supervision-feedback">
-                    ${feedback}
-                </div>
-                ${improvements && improvements !== '없음' ? `<div class="supervision-improvements">개선점: ${improvements}</div>` : ''}
-                ${strengths && strengths !== '없음' ? `<div class="supervision-strengths">잘한 점: ${strengths}</div>` : ''}
+                ${feedback ? `<div class="supervision-feedback">${feedback}</div>` : ''}
+                ${improvements && improvements !== '없음' ? `
+                    <div class="supervision-improvements">
+                        <div class="supervision-improvements-text">${improvements}</div>
+                    </div>
+                ` : ''}
+                ${strengths && strengths !== '없음' ? `
+                    <div class="supervision-strengths">
+                        <div class="supervision-strengths-text">${strengths}</div>
+                    </div>
+                ` : ''}
             </div>
         `;
     }).join('');

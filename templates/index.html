@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <div class="chat-header">
-            <h1>💬 CBot 상담</h1>
+            <h1>CBot 상담</h1>
             <div class="conversation-info">
                 <span id="conversation-id-display">새 대화</span>
                 <button id="new-conversation-btn" class="btn-secondary">새 대화 시작</button>
@@ -31,27 +31,53 @@
                 </div>
                 
                 <div class="sidebar-content">
-                    <!-- 세션 상태 및 진행도 -->
+                    <!-- Part 진행 상태 -->
                     <div class="info-section">
-                        <h4>📊 세션 상태</h4>
-                        <div id="session-status" class="session-status">
-                            <p class="no-task">세션 정보를 불러오는 중...</p>
+                        <h4>📊 Part 진행 상태</h4>
+                        <div id="part-progress" class="part-progress">
+                            <div class="part-steps">
+                                <div class="part-step" data-part="1">
+                                    <div class="part-step-circle">1</div>
+                                    <div class="part-step-label">시작</div>
+                                </div>
+                                <div class="part-step-connector"></div>
+                                <div class="part-step" data-part="2">
+                                    <div class="part-step-circle">2</div>
+                                    <div class="part-step-label">탐색</div>
+                                </div>
+                                <div class="part-step-connector"></div>
+                                <div class="part-step" data-part="3">
+                                    <div class="part-step-circle">3</div>
+                                    <div class="part-step-label">마무리</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- 현재 Task -->
+                    <!-- 현재 상태 -->
                     <div class="info-section">
-                        <h4>📋 현재 Task</h4>
-                        <div id="current-task" class="current-task">
-                            <p class="no-task">아직 task가 없습니다.</p>
+                        <h4>📍 현재 상태</h4>
+                        <div id="current-status" class="current-status">
+                            <div class="status-item">
+                                <span class="status-label">Part:</span>
+                                <span id="current-part" class="status-value">-</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Task:</span>
+                                <span id="current-task-title" class="status-value">-</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Module:</span>
+                                <span id="current-module" class="status-value">-</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Task 목록 (상태별 구분) -->
+                    <!-- Task 목록 (Part별 구분) -->
                     <div class="info-section">
                         <h4>✅ Task 목록</h4>
                         <div id="task-list" class="task-list">
-                            <p class="no-task">task가 없습니다.</p>
+                            <p class="no-data">task가 없습니다.</p>
                         </div>
                     </div>
                     
@@ -59,7 +85,7 @@
                     <div class="info-section">
                         <h4>👁️ Supervision</h4>
                         <div id="supervision-log" class="supervision-log">
-                            <p class="no-task">아직 supervision이 없습니다.</p>
+                            <p class="no-data">아직 supervision이 없습니다.</p>
                         </div>
                     </div>
                 </div>

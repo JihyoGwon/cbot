@@ -125,16 +125,7 @@ body {
 .message {
     margin-bottom: 20px;
     display: flex;
-    flex-direction: column;
     animation: fadeIn 0.3s ease-in;
-}
-
-.message.user {
-    align-items: flex-end;
-}
-
-.message.assistant {
-    align-items: flex-start;
 }
 
 @keyframes fadeIn {
@@ -148,6 +139,13 @@ body {
     }
 }
 
+.message.user {
+    justify-content: flex-end;
+}
+
+.message.assistant {
+    justify-content: flex-start;
+}
 
 .message-content {
     max-width: 70%;
@@ -175,21 +173,6 @@ body {
 .message.assistant .message-content:hover {
     border-color: var(--primary-color);
     box-shadow: var(--shadow-sm);
-}
-
-.message-time {
-    font-size: 10px;
-    color: #424242;
-    margin-top: 4px;
-    padding: 0 4px;
-}
-
-.message.user .message-time {
-    text-align: right;
-}
-
-.message.assistant .message-time {
-    text-align: left;
 }
 
 .chat-input-container {

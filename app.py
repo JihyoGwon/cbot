@@ -212,7 +212,8 @@ def get_message_prompt(conversation_id, message_index):
             response_data = {
                 'prompt': prompt,
                 'current_task': metadata.get('current_task'),
-                'tasks_remaining': metadata.get('tasks_remaining', 0)
+                'current_part': metadata.get('current_part', 1),
+                'current_module': metadata.get('current_module')
             }
             
             # Supervision 정보가 있으면 포함
