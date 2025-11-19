@@ -1,8 +1,11 @@
 """User State Detector Service - 사용자 상태 감지"""
 import os
+import logging
 from typing import Dict, List
 from langchain_google_vertexai import ChatVertexAI
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class UserStateDetectorService:
@@ -76,6 +79,8 @@ USER_STATE_SUMMARY: [상태 요약]"""
             response = self.llm.invoke(messages)
             response_text = response.content if hasattr(response, 'content') else str(response)
             
+            logger.debug(f"[USER_STATE_DETECTOR] LLM 응답: {response_text[:500]}")
+            
             # 응답 파싱
             result = {
                 "resistance_detected": False,
@@ -102,10 +107,16 @@ USER_STATE_SUMMARY: [상태 요약]"""
                 elif 'USER_STATE_SUMMARY:' in line.upper():
                     result["user_state_summary"] = line.split(':', 1)[1].strip()
             
+            logger.info(f"[USER_STATE_DETECTOR] 파싱 결과: resistance={result['resistance_detected']}, "
+                       f"emotion={result['emotion_change']}, topic_change={result['topic_change']}, "
+                       f"circular={result['circular_conversation']}")
+            
             return result
         
         except Exception as e:
-            print(f"User State Detector 오류: {str(e)}")
+            import traceback
+            logger.error(f"[USER_STATE_DETECTOR] 오류: {str(e)}")
+            logger.error(f"[USER_STATE_DETECTOR] Traceback: {traceback.format_exc()}")
             return {
                 "resistance_detected": False,
                 "emotion_change": None,

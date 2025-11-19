@@ -272,7 +272,6 @@ JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 
         ]
         
         try:
-            import json
             import re
             
             response = self.llm.invoke(messages)

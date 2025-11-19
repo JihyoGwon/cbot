@@ -218,6 +218,13 @@ class CounselorService:
             
             timing_log['parallel_check'] = time.time() - t0
             
+            # User State Detector 결과 로깅
+            if user_state:
+                logger.info(f"[USER_STATE] resistance={user_state.get('resistance_detected')} | "
+                           f"emotion={user_state.get('emotion_change')} | "
+                           f"topic_change={user_state.get('topic_change')} | "
+                           f"circular={user_state.get('circular_conversation')}")
+            
             # Task 완료 여부 확인
             task_completed = completion_result and completion_result.get('is_completed', False)
             
@@ -488,6 +495,14 @@ class CounselorService:
                 daemon=True
             ).start()
             
+            # Part 2 Task 업데이트 확인 (비동기, Part 2일 때만)
+            if current_part == 2 and user_state:
+                threading.Thread(
+                    target=self._check_part2_task_update_async,
+                    args=(conversation_id, current_tasks, conversation_history, user_state),
+                    daemon=True
+                ).start()
+            
             # 메시지 카운트 증가 (비동기)
             threading.Thread(
                 target=lambda: self.session_service.increment_message_count(conversation_id),
@@ -690,6 +705,52 @@ class CounselorService:
             "counseling_purpose": counseling_purpose,
             "basic_problem": basic_problem
         }
+    
+    def _check_part2_task_update_async(self, conversation_id: str, current_tasks: List[Dict],
+                                      conversation_history: List[Dict], user_state: Dict) -> None:
+        """Part 2 Task 업데이트 확인 (비동기)"""
+        try:
+            # 업데이트 조건 확인
+            should_update = (
+                user_state.get('topic_change', False) or
+                user_state.get('resistance_detected', False) or
+                user_state.get('circular_conversation', False)
+            )
+            
+            if not should_update:
+                logger.debug(f"[PART2_UPDATE] 업데이트 조건 미충족: topic_change={user_state.get('topic_change')}, "
+                           f"resistance={user_state.get('resistance_detected')}, "
+                           f"circular={user_state.get('circular_conversation')}")
+                return
+            
+            logger.info(f"[PART2_UPDATE] Task 업데이트 시작: topic_change={user_state.get('topic_change')}, "
+                       f"resistance={user_state.get('resistance_detected')}, "
+                       f"circular={user_state.get('circular_conversation')}")
+            
+            # Task 업데이트 실행
+            updated_tasks = self.task_planner.update_part2_tasks(
+                conversation_history,
+                current_tasks,
+                user_state,
+                should_update=True
+            )
+            
+            if updated_tasks != current_tasks:
+                # Firestore 업데이트
+                self.session_service.update_tasks(conversation_id, updated_tasks)
+                
+                # 캐시 업데이트
+                if conversation_id in self.session_cache:
+                    self.session_cache[conversation_id]['tasks'] = updated_tasks
+                
+                logger.info(f"[PART2_UPDATE] Task 업데이트 완료: {len(updated_tasks)}개 Task")
+            else:
+                logger.debug(f"[PART2_UPDATE] Task 업데이트 없음 (조건 충족했으나 변경사항 없음)")
+        
+        except Exception as e:
+            import traceback
+            logger.error(f"[PART2_UPDATE] 오류: {str(e)}")
+            logger.error(f"[PART2_UPDATE] Traceback: {traceback.format_exc()}")
     
     def _run_supervision_async(self, conversation_id: str, message: str, 
                                counselor_response: str, current_task: Optional[Dict],
