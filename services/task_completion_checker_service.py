@@ -25,30 +25,40 @@ class TaskCompletionCheckerService:
         """Task Completion Checker 시스템 프롬프트"""
         return """당신은 Task 완료 여부를 판단하는 전문가입니다. **실용적이고 관대한 기준**으로 Task 완료를 판단하세요.
 
-**중요 원칙:**
-- 완벽한 달성을 기대하지 마세요. 기본적인 목표가 달성되면 완료로 판단하세요.
-- 사용자가 Task의 핵심 목표에 대해 응답하거나 행동했다면 완료로 판단하세요.
-- "sufficient"는 "충분히 다뤘다"는 의미로, 완벽하지 않아도 다음 단계로 진행 가능하면 "sufficient"로 판단하세요.
+**Task 상태 정의:**
+- `sufficient`: 충분히 다뤘고, 완벽하지 않아도 다음 단계로 진행 가능한 상태
+- `completed`: 완전히 완료되었고, 더 이상 다룰 필요가 없는 상태
+- `None`: 아직 완료되지 않음
 
-**Task 완료 판단 기준 (우선순위 순):**
-1. 명시적 완료 신호: 사용자나 상담사가 Task 목표를 달성했다고 명시
-2. 핵심 목표 달성: Task의 핵심 목표(target)가 달성되었는지 확인 (completion_criteria보다 관대하게)
-3. 기본적인 진행: 사용자가 Task와 관련된 정보를 공유하거나 대화에 참여하기 시작했을 때
+**1. "completed" 판단 기준 (완전 완료):**
+다음 조건 중 하나라도 충족되면 `completed`로 판단:
+- 명시적 완료 신호:
+  * 사용자의 확인/동의, 감사, 만족 표현
+  * 사용자가 다음 단계로 넘어가자고 제안
+  * 상담사가 Task 목표를 달성했다고 명시하고 사용자가 긍정적으로 응답한 경우
 
-**"sufficient" 판단 기준:**
-- Task의 핵심 목표가 기본적으로 달성되었고
+- 완전한 목표 달성:
+  * Task의 핵심 목표(target)가 완전히 달성되었고
+  * completion_criteria의 모든 요구사항이 충족되었으며
+  * 사용자가 명시적으로 확인하거나 동의한 경우
+
+**2. "sufficient" 판단 기준 (충분히 다뤘음):**
+다음 조건 중 하나라도 충족되면 `sufficient`로 판단:
+- Task의 핵심 목표(target)가 기본적으로 달성되었을 때
+- 상담사가 Task를 수행했고 사용자가 자연스럽게 응답했을 때
 - 더 깊이 다루기보다는 다음 Task로 진행하는 것이 자연스러울 때
-- 완벽하지 않아도 상담이 진행될 수 있을 때
 
-**주의사항:**
-- 완벽한 관계 형성이나 완벽한 정보 수집을 요구하지 마세요.
-- 사용자가 대화에 참여하고 기본적인 정보를 공유하기 시작했다면 "sufficient"로 판단하세요.
-- 같은 이유로 계속 미완료로 판단하지 마세요. 진행이 있다면 완료로 판단하세요.
+**3. 완료되지 않음 (None):**
+- Task의 핵심 목표가 아직 달성되지 않았거나
+- 사용자가 Task와 관련된 정보를 공유하기 시작했지만 아직 충분하지 않은 경우
 
 **응답 형식:**
-IS_COMPLETED: [True|False]
 NEW_STATUS: [sufficient|completed|None]
-COMPLETION_REASON: [완료 이유 또는 None]"""
+COMPLETION_REASON: [완료 이유 또는 None]
+
+**참고:**
+- `NEW_STATUS: sufficient` 또는 `NEW_STATUS: completed` → 완료로 간주
+- `NEW_STATUS: None` → 미완료"""
     
     def check_completion(self, current_task: Dict, conversation_history: List[Dict]) -> Dict:
         """
@@ -60,18 +70,18 @@ COMPLETION_REASON: [완료 이유 또는 None]"""
             
         Returns:
             {
-                "is_completed": bool,
                 "new_status": "sufficient" | "completed" | None,
                 "completion_reason": str,
-                "task_id": str
+                "task_id": str,
+                "raw_output": str
             }
         """
         if not current_task:
             return {
-                "is_completed": False,
                 "new_status": None,
                 "completion_reason": None,
-                "task_id": None
+                "task_id": None,
+                "raw_output": ""
             }
         
         # 최근 대화 요약
@@ -99,7 +109,6 @@ Task ID: {current_task.get('id')}
 위 정보를 바탕으로 시스템 프롬프트의 판단 기준에 따라 Task가 완료되었는지 판단하세요.
 
 다음 형식으로 응답하세요:
-IS_COMPLETED: [True|False]
 NEW_STATUS: [sufficient|completed|None]
 COMPLETION_REASON: [완료 이유 또는 None]"""
         
@@ -113,26 +122,23 @@ COMPLETION_REASON: [완료 이유 또는 None]"""
             response_text = response.content if hasattr(response, 'content') else str(response)
             
             # 응답 파싱
-            is_completed = False
             new_status = None
             completion_reason = None
             
             for line in response_text.split('\n'):
-                if 'IS_COMPLETED:' in line.upper():
-                    value = line.split(':', 1)[1].strip().lower()
-                    is_completed = value == 'true'
-                elif 'NEW_STATUS:' in line.upper():
+                if 'NEW_STATUS:' in line.upper():
                     value = line.split(':', 1)[1].strip().lower()
                     if value in ['sufficient', 'completed']:
                         new_status = value
+                    elif value == 'none':
+                        new_status = None
                 elif 'COMPLETION_REASON:' in line.upper():
                     completion_reason = line.split(':', 1)[1].strip()
                     if completion_reason.lower() == 'none':
                         completion_reason = None
             
             return {
-                "is_completed": is_completed,
-                "new_status": new_status if is_completed else None,
+                "new_status": new_status,
                 "completion_reason": completion_reason,
                 "task_id": current_task.get('id'),
                 "raw_output": response_text  # 디버깅용 원본 출력
@@ -141,9 +147,9 @@ COMPLETION_REASON: [완료 이유 또는 None]"""
         except Exception as e:
             print(f"Task Completion Checker 오류: {str(e)}")
             return {
-                "is_completed": False,
                 "new_status": None,
                 "completion_reason": None,
-                "task_id": current_task.get('id')
+                "task_id": current_task.get('id'),
+                "raw_output": f"오류: {str(e)}"
             }
 

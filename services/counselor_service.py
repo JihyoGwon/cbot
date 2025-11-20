@@ -102,7 +102,7 @@ class CounselorService:
  - 응답은 간결하고 핵심만 전달하세요. 긴 설명보다는 공감과 핵심 조언에 집중하세요. 2-3문장 정도로 짧고 명확하게 답변하세요.
  - 최종 발화에는 최대 1개 질문이 허용 됩니다. 어떤 질문을 할 것인지 신중하게 고민하세요.
 
-사용자가 상담을 시작할 때는 따뜻하게 환영하고, 편안하게 이야기할 수 있도록 격려하세요."""
+"""
     
     def get_counselor_prompt(self, current_part: int, current_task: Optional[Dict] = None, 
                             execution_guide: str = "", module_guidelines: str = "",
@@ -255,13 +255,12 @@ class CounselorService:
                            f"topic_change={user_state.get('topic_change')} | "
                            f"circular={user_state.get('circular_conversation')}")
             
-            # Task 완료 여부 확인
-            task_completed = completion_result and completion_result.get('is_completed', False)
+            # Task 완료 여부 확인 (new_status가 있으면 완료)
+            task_completed = completion_result and completion_result.get('new_status') is not None
             
             # 디버깅 로그 추가
             if completion_result:
                 logger.info(f"[TASK_COMPLETION] task_id={completion_result.get('task_id')} | "
-                           f"is_completed={completion_result.get('is_completed')} | "
                            f"new_status={completion_result.get('new_status')} | "
                            f"reason={completion_result.get('completion_reason', 'N/A')[:100]}")
                 logger.debug(f"[TASK_COMPLETION_RAW] {completion_result.get('raw_output', 'N/A')[:500]}")

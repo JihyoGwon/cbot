@@ -76,7 +76,7 @@ Task 생성 시 고려사항:
                     "title": "관계 형성하기",
                     "description": "사용자와 신뢰 관계를 구축하고 편안한 분위기 만들기",
                     "target": "사용자가 편안하게 느끼고 신뢰할 수 있는 관계 형성",
-                    "completion_criteria": "사용자가 편안하게 대화를 이어갈 수 있을 때 완료",
+                    "completion_criteria": "사용자가 편안하게 대화를 이어가거나 핵심 고민을 얘기함",
                     "status": "pending"
                 }
             ]
@@ -307,7 +307,7 @@ JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 
                 "title": "상담 내용 요약하기",
                 "description": "오늘 상담에서 다룬 내용을 요약하고 정리",
                 "target": "사용자가 오늘 상담 내용을 이해하고 정리",
-                "completion_criteria": "상담 내용을 요약하고 사용자가 확인했을 때 완료",
+                "completion_criteria": "상담 내용을 요약하고 사용자가 확인/동의/감사/만족 표현을 했을 때 완료",
                 "status": "pending"
             },
             {
