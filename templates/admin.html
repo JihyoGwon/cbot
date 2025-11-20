@@ -22,6 +22,10 @@
                     <span class="menu-icon">🔑</span>
                     <span class="menu-text">공통 키워드</span>
                 </a>
+                <a href="#" class="menu-item" data-menu="counseling-levels">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">상담 레벨</span>
+                </a>
             </nav>
         </aside>
 
@@ -119,7 +123,42 @@
                         </div>
                     </section>
                 </div>
-            </div>
+
+                <!-- 상담 레벨 페이지 -->
+                <div id="counseling-levels-page" class="content-page">
+                    <section class="section">
+                        <h2>상담 레벨 관리</h2>
+                        <p class="section-description">
+                            상담 레벨은 1~5 단계로 구성되며, 각 레벨에 따라 상담의 깊이와 집중 영역이 달라집니다. 
+                            레벨에 따라 Part 2의 목표와 Task 범위가 조절됩니다.
+                        </p>
+                        
+                        <div class="counseling-levels-form">
+                            <table class="levels-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 80px;">레벨</th>
+                                        <th style="width: 120px;">단계</th>
+                                        <th>집중 영역</th>
+                                        <th>설명</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="levels-list">
+                                    <tr>
+                                        <td colspan="4" class="loading">로딩 중...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <div class="form-actions-bottom">
+                                <button id="save-levels-btn" class="btn-primary btn-large">
+                                    💾 상담 레벨 저장
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+    </div>
         </div>
     </div>
 

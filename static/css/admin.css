@@ -321,6 +321,70 @@ body {
     white-space: nowrap;
 }
 
+/* 상담 레벨 테이블 */
+.levels-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    margin-bottom: 20px;
+}
+
+.levels-table thead {
+    background-color: #f8f9fa;
+}
+
+.levels-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 14px;
+}
+
+.levels-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.levels-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.levels-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.level-number {
+    text-align: center;
+    font-weight: 600;
+    color: #333;
+    font-size: 16px;
+    background-color: #fff9e6;
+    width: 80px;
+}
+
+.level-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.level-input:focus {
+    outline: none;
+    border-color: #FFD700;
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+    background-color: #fffef5;
+}
+
+.level-input::placeholder {
+    color: #bbb;
+}
+
 .btn {
     padding: 8px 16px;
     border: none;

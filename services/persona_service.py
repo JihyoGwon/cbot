@@ -333,4 +333,81 @@ class PersonaService:
             "total": len(default_personas),
             "common_keywords": common_keywords
         }
+    
+    def get_counseling_levels(self) -> List[Dict]:
+        """
+        상담 레벨 목록 가져오기
+        
+        Returns:
+            상담 레벨 목록 (1~5)
+        """
+        levels_ref = self.firestore.db.collection("counseling_levels")
+        levels_doc = levels_ref.document("levels").get()
+        
+        if levels_doc.exists:
+            data = levels_doc.to_dict()
+            return data.get('levels', self._get_default_levels())
+        
+        return self._get_default_levels()
+    
+    def update_counseling_levels(self, levels: List[Dict]) -> List[Dict]:
+        """
+        상담 레벨 업데이트
+        
+        Args:
+            levels: 상담 레벨 리스트 (5개)
+        
+        Returns:
+            업데이트된 상담 레벨 리스트
+        """
+        if len(levels) != 5:
+            raise ValueError("상담 레벨은 정확히 5개여야 합니다.")
+        
+        # 레벨 번호 검증
+        level_numbers = [level.get('level') for level in levels]
+        if sorted(level_numbers) != [1, 2, 3, 4, 5]:
+            raise ValueError("상담 레벨은 1~5까지 모두 포함되어야 합니다.")
+        
+        levels_ref = self.firestore.db.collection("counseling_levels").document("levels")
+        levels_ref.set({
+            "levels": levels,
+            "updated_at": datetime.now()
+        })
+        
+        return levels
+    
+    def _get_default_levels(self) -> List[Dict]:
+        """기본 상담 레벨 반환"""
+        return [
+            {
+                "level": 1,
+                "stage": "초기",
+                "focus_area": "라포 형성, 문제 인식",
+                "description": "상담 초기 단계, 관계 형성과 문제 인식에 집중"
+            },
+            {
+                "level": 2,
+                "stage": "탐색",
+                "focus_area": "감정 탐색, 상황 파악",
+                "description": "문제의 깊이 있는 탐색, 감정과 상황 이해"
+            },
+            {
+                "level": 3,
+                "stage": "이해",
+                "focus_area": "패턴 인식, 원인 파악",
+                "description": "문제의 패턴과 원인을 이해하는 단계"
+            },
+            {
+                "level": 4,
+                "stage": "변화",
+                "focus_area": "행동 변화, 대처 전략",
+                "description": "구체적인 변화와 대처 전략 수립"
+            },
+            {
+                "level": 5,
+                "stage": "말기",
+                "focus_area": "문제 해결, 유지",
+                "description": "문제 해결과 변화 유지에 집중"
+            }
+        ]
 

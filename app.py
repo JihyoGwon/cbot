@@ -442,6 +442,46 @@ def initialize_personas():
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 
+@app.route('/admin/api/counseling-levels', methods=['GET'])
+def get_counseling_levels():
+    """상담 레벨 목록 가져오기"""
+    try:
+        levels = persona_service.get_counseling_levels()
+        
+        return jsonify({
+            'levels': levels,
+            'count': len(levels)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/counseling-levels', methods=['PUT'])
+def update_counseling_levels():
+    """상담 레벨 업데이트"""
+    try:
+        data = request.get_json()
+        levels = data.get('levels', [])
+        
+        if len(levels) != 5:
+            return jsonify({'error': '상담 레벨은 정확히 5개여야 합니다.'}), 400
+        
+        updated_levels = persona_service.update_counseling_levels(levels)
+        
+        return jsonify({
+            'message': '상담 레벨이 업데이트되었습니다.',
+            'levels': updated_levels
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
 

@@ -97,6 +97,10 @@ function switchMenu(menu) {
     } else if (menu === 'common-keywords') {
         pageTitle.textContent = '공통 키워드 관리';
         headerActions.innerHTML = '';
+    } else if (menu === 'counseling-levels') {
+        pageTitle.textContent = '상담 레벨 관리';
+        headerActions.innerHTML = '';
+        loadCounselingLevels();
     }
 }
 
@@ -410,6 +414,109 @@ function showSuccess(message) {
     setTimeout(() => {
         successDiv.remove();
     }, 3000);
+}
+
+// 상담 레벨 목록 로드
+async function loadCounselingLevels() {
+    try {
+        const response = await fetch('/admin/api/counseling-levels');
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (data.levels && Array.isArray(data.levels)) {
+                renderCounselingLevels(data.levels);
+            } else {
+                console.error('Invalid levels data:', data);
+                showError('상담 레벨 데이터 형식이 올바르지 않습니다.');
+                document.getElementById('levels-list').innerHTML = '<tr><td colspan="4" class="loading">데이터 형식 오류</td></tr>';
+            }
+        } else {
+            showError('상담 레벨 목록을 불러오는데 실패했습니다: ' + (data.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        console.error('Error loading counseling levels:', error);
+        showError('상담 레벨 목록을 불러오는데 실패했습니다: ' + error.message);
+    }
+}
+
+// 상담 레벨 목록 렌더링
+function renderCounselingLevels(levels) {
+    const container = document.getElementById('levels-list');
+    
+    if (!Array.isArray(levels) || levels.length === 0) {
+        container.innerHTML = '<tr><td colspan="4" class="loading">상담 레벨 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    // 레벨 순서대로 정렬
+    const sortedLevels = [...levels].sort((a, b) => a.level - b.level);
+    
+    container.innerHTML = sortedLevels.map(level => `
+        <tr>
+            <td class="level-number">${level.level}</td>
+            <td>
+                <input type="text" class="level-input" data-level="${level.level}" data-field="stage" 
+                       value="${escapeHtml(level.stage || '')}" placeholder="단계 이름">
+            </td>
+            <td>
+                <input type="text" class="level-input" data-level="${level.level}" data-field="focus_area" 
+                       value="${escapeHtml(level.focus_area || '')}" placeholder="집중 영역">
+            </td>
+            <td>
+                <input type="text" class="level-input" data-level="${level.level}" data-field="description" 
+                       value="${escapeHtml(level.description || '')}" placeholder="설명">
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 상담 레벨 저장
+async function saveCounselingLevels() {
+    const levels = [];
+    const levelInputs = document.querySelectorAll('.level-input');
+    
+    // 레벨별로 데이터 수집
+    const levelData = {};
+    levelInputs.forEach(input => {
+        const level = parseInt(input.getAttribute('data-level'));
+        const field = input.getAttribute('data-field');
+        const value = input.value.trim();
+        
+        if (!levelData[level]) {
+            levelData[level] = { level: level };
+        }
+        levelData[level][field] = value;
+    });
+    
+    // 레벨 1~5 모두 있는지 확인
+    for (let i = 1; i <= 5; i++) {
+        if (!levelData[i]) {
+            showError(`레벨 ${i}의 데이터가 없습니다.`);
+            return;
+        }
+        levels.push(levelData[i]);
+    }
+    
+    try {
+        const response = await fetch('/admin/api/counseling-levels', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ levels })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showSuccess('상담 레벨이 저장되었습니다.');
+            loadCounselingLevels();
+        } else {
+            showError('상담 레벨 저장에 실패했습니다: ' + data.error);
+        }
+    } catch (error) {
+        showError('상담 레벨 저장에 실패했습니다: ' + error.message);
+    }
 }
 
 // HTML 이스케이프
