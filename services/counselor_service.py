@@ -360,11 +360,13 @@ class CounselorService:
                         self.part_manager.transition_to_part(conversation_id, next_part)
                         current_part = next_part
                         
-                        # Part 2 Task 생성
+                        # Part 2 목표 수립 및 Task 생성
                         if next_part == 2:
-                            part2_tasks = self.task_planner.create_part2_tasks(conversation_history)
+                            part2_goal, selected_keywords, part2_tasks = self.task_planner.create_part2_goal_and_plan(
+                                conversation_id, conversation_history
+                            )
                             
-                            logger.info(f"[PART_TRANSITION] Part 2 Task 생성: {len(part2_tasks)}개 Task 생성됨")
+                            logger.info(f"[PART_TRANSITION] Part 2 목표 수립: 목표={part2_goal[:100] if part2_goal else 'None'}, 키워드={selected_keywords}, Task={len(part2_tasks)}개")
                             
                             if len(part2_tasks) == 0:
                                 logger.warning(f"[PART_TRANSITION] Part 2 Task 생성 실패 - 빈 리스트 반환")
@@ -377,22 +379,34 @@ class CounselorService:
                                 session['current_part'] = next_part
                                 self.session_cache[conversation_id] = session
                             else:
+                                # Part 2 목표 및 선택된 키워드 저장
+                                if part2_goal:
+                                    self.session_service.update_part2_goal(conversation_id, part2_goal, selected_keywords)
+                                    logger.info(f"[PART_TRANSITION] Part 2 목표 저장 완료")
+                                
                                 # 기존 Task에 추가
                                 current_tasks = current_tasks + part2_tasks
                                 
                                 # Firestore에 저장 (current_part와 tasks 함께 업데이트)
                                 session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
-                                session_ref.update({
+                                update_data = {
                                     "current_part": next_part,
                                     "tasks": current_tasks,
                                     "updated_at": datetime.now()
-                                })
+                                }
+                                if part2_goal:
+                                    update_data["part2_goal"] = part2_goal
+                                    update_data["part2_selected_keywords"] = selected_keywords
+                                session_ref.update(update_data)
                                 
                                 logger.info(f"[PART_TRANSITION] Firestore 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
                                 
                                 # 캐시 업데이트
                                 session['current_part'] = next_part
                                 session['tasks'] = current_tasks
+                                if part2_goal:
+                                    session['part2_goal'] = part2_goal
+                                    session['part2_selected_keywords'] = selected_keywords
                                 self.session_cache[conversation_id] = session
                                 
                                 logger.info(f"[PART_TRANSITION] 캐시 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
@@ -636,6 +650,14 @@ class CounselorService:
             initial_tasks = self.task_planner.create_initial_tasks("first_session")
             self.session_service.update_tasks(conversation_id, initial_tasks)
             session['tasks'] = initial_tasks
+        else:
+            # 세션이 존재하지만 태스크가 비어있으면 초기 태스크 생성
+            tasks = session.get('tasks', [])
+            if not tasks:
+                logger.info(f"[SESSION] 세션은 존재하지만 태스크가 비어있음. 초기 태스크 생성: {conversation_id[:8]}...")
+                initial_tasks = self.task_planner.create_initial_tasks("first_session")
+                self.session_service.update_tasks(conversation_id, initial_tasks)
+                session['tasks'] = initial_tasks
         
         # 캐시에 저장
         self.session_cache[conversation_id] = session
@@ -656,14 +678,21 @@ class CounselorService:
                 # Part 전환
                 self.part_manager.transition_to_part(conversation_id, next_part)
                 
-                # Part 2 Task 생성
+                # Part 2 목표 수립 및 Task 생성
                 if next_part == 2:
-                    part2_tasks = self.task_planner.create_part2_tasks(conversation_history)
-                    logger.info(f"[PART_TRANSITION_ASYNC] Part 2 Task 생성: {len(part2_tasks)}개 Task 생성됨")
+                    part2_goal, selected_keywords, part2_tasks = self.task_planner.create_part2_goal_and_plan(
+                        conversation_id, conversation_history
+                    )
+                    logger.info(f"[PART_TRANSITION_ASYNC] Part 2 목표 수립: 목표={part2_goal[:100] if part2_goal else 'None'}, 키워드={selected_keywords}, Task={len(part2_tasks)}개")
                     
                     if len(part2_tasks) == 0:
                         logger.warning(f"[PART_TRANSITION_ASYNC] Part 2 Task 생성 실패 - 빈 리스트 반환")
                     else:
+                        # Part 2 목표 및 선택된 키워드 저장
+                        if part2_goal:
+                            self.session_service.update_part2_goal(conversation_id, part2_goal, selected_keywords)
+                            logger.info(f"[PART_TRANSITION_ASYNC] Part 2 목표 저장 완료")
+                        
                         # 기존 Task에 추가
                         current_tasks = tasks + part2_tasks
                         self.session_service.update_tasks(conversation_id, current_tasks)
@@ -673,6 +702,9 @@ class CounselorService:
                         if conversation_id in self.session_cache:
                             self.session_cache[conversation_id]['tasks'] = current_tasks
                             self.session_cache[conversation_id]['current_part'] = 2
+                            if part2_goal:
+                                self.session_cache[conversation_id]['part2_goal'] = part2_goal
+                                self.session_cache[conversation_id]['part2_selected_keywords'] = selected_keywords
                             logger.info(f"[PART_TRANSITION_ASYNC] 캐시 업데이트 완료: tasks_count={len(current_tasks)}")
                 
                 # Part 3 Task 생성

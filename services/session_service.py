@@ -205,4 +205,20 @@ class SessionService:
             "message_count": firestore.Increment(1),
             "updated_at": datetime.now()
         })
+    
+    def update_part2_goal(self, conversation_id: str, goal: str, selected_keywords: List[str]) -> None:
+        """
+        Part 2 목표 및 선택된 키워드 저장
+        
+        Args:
+            conversation_id: 대화 ID
+            goal: Part 2 목표 (문자열)
+            selected_keywords: 선택된 키워드 리스트 (최대 3~4개)
+        """
+        session_ref = self.firestore.db.collection("sessions").document(conversation_id)
+        session_ref.update({
+            "part2_goal": goal,
+            "part2_selected_keywords": selected_keywords,
+            "updated_at": datetime.now()
+        })
 

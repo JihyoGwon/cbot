@@ -2,10 +2,12 @@
 import os
 import json
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from langchain_google_vertexai import ChatVertexAI
 from config import Config
 from services.module_service import ModuleService
+from services.session_service import SessionService
+from services.persona_service import PersonaService
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,8 @@ class TaskPlannerService:
         )
         
         self.module_service = ModuleService()
+        self.session_service = SessionService()
+        self.persona_service = PersonaService()
     
     def get_first_session_prompt(self) -> str:
         """첫 회기 상담을 위한 시스템 프롬프트"""
@@ -82,6 +86,177 @@ Task 생성 시 고려사항:
             ]
         else:
             return []
+    
+    def create_part2_goal_and_plan(self, conversation_id: str, conversation_history: List[Dict]) -> Tuple[str, List[str], List[Dict]]:
+        """
+        Part 2 목표 및 Task Plan 수립 (페르소나 기반)
+        
+        Args:
+            conversation_id: 대화 ID
+            conversation_history: Part 1 대화 기록
+            
+        Returns:
+            (part2_goal, selected_keywords, tasks) 튜플
+            - part2_goal: Part 2 목표 (문자열)
+            - selected_keywords: 선택된 키워드 리스트 (최대 3~4개)
+            - tasks: Part 2 Task 목록
+        """
+        # 1. 세션에서 페르소나 정보 조회
+        session = self.session_service.get_session(conversation_id)
+        if not session:
+            logger.error(f"[PART2_GOAL] 세션을 찾을 수 없음: {conversation_id}")
+            return "", [], []
+        
+        user_persona = session.get('user_persona')
+        if not user_persona:
+            logger.error(f"[PART2_GOAL] 페르소나 정보가 없음: {conversation_id}")
+            return "", [], []
+        
+        persona_type = user_persona.get('type', '')
+        type_specific_keywords = user_persona.get('type_specific_keywords', [])
+        common_keywords = user_persona.get('common_keywords', [])
+        counseling_level = user_persona.get('counseling_level', 1)
+        
+        # 모든 키워드 합치기 (8개)
+        all_keywords = type_specific_keywords + common_keywords
+        
+        # 2. DB에서 상담 레벨 정보 조회
+        counseling_levels = self.persona_service.get_counseling_levels()
+        current_level_info = next((level for level in counseling_levels if level.get('level') == counseling_level), None)
+        
+        if not current_level_info:
+            logger.warning(f"[PART2_GOAL] 상담 레벨 {counseling_level} 정보를 찾을 수 없음. 기본값 사용")
+            current_level_info = {
+                'level': counseling_level,
+                'stage': '초기',
+                'focus_area': '라포 형성, 문제 인식',
+                'description': '상담 초기 단계, 관계 형성과 문제 인식에 집중'
+            }
+        
+        level_stage = current_level_info.get('stage', '')
+        level_focus_area = current_level_info.get('focus_area', '')
+        level_description = current_level_info.get('description', '')
+        
+        # 모든 레벨 정보를 프롬프트에 포함 (Task 깊이 조절 가이드용)
+        level_guide_text = "\n".join([
+            f"   - 레벨 {level.get('level')}: {level.get('stage')} - {level.get('focus_area')} ({level.get('description')})"
+            for level in counseling_levels
+        ])
+        
+        # 3. Part 1 대화 분석
+        conversation_summary = "\n".join([
+            f"{msg.get('role')}: {msg.get('content', '')[:300]}"
+            for msg in conversation_history
+        ])
+        
+        prompt = f"""Part 1 상담이 완료되었습니다. 사용자의 페르소나 정보와 Part 1 대화 내용을 바탕으로 Part 2 목표와 Task Plan을 수립하세요.
+
+## 페르소나 정보
+- 타입: {persona_type}
+- 타입 특화 키워드: {', '.join(type_specific_keywords)}
+- 공통 키워드: {', '.join(common_keywords)}
+- 상담 레벨: {counseling_level} ({level_stage} - {level_focus_area})
+  - 설명: {level_description}
+
+## Part 1 대화 내용
+{conversation_summary}
+
+## 작업 순서
+1. **키워드 관련성 평가**: 위 8개 키워드 중 Part 1 대화와 가장 관련성 높은 키워드를 1개 선택하세요.
+2. **Part 2 목표 생성**: 페르소나 타입 + 선택된 키워드 + 상담 레벨 + 대화 내용을 바탕으로 구체적이고 측정 가능한 Part 2 목표를 생성하세요.
+   예: "완벽주의 성향과 스트레스 관리 문제를 중심으로, 감정 탐색과 대처 전략 수립에 집중"
+3. **Task Plan 수립**: Part 2 목표 달성을 위한 구체적 Task를 생성하세요. 현재 상담 레벨({counseling_level})의 특성({level_description})을 고려하여 Task 깊이를 조절하세요.
+
+상담 레벨별 가이드:
+{level_guide_text}
+
+JSON 형식으로 반환하세요:
+{{
+  "selected_keywords": ["키워드"],
+  "part2_goal": "Part 2 목표 (구체적이고 측정 가능)",
+  "tasks": [
+    {{
+      "id": "task_part2_1",
+      "part": 2,
+      "priority": "high|medium|low",
+      "title": "Task 제목",
+      "target": "Task 목표",
+      "description": "Task 설명 (3문장 이하)",
+      "completion_criteria": "Task 완료 판단 기준",
+      "status": "pending"
+    }}
+  ]
+}}
+
+최대 7개의 Task를 생성하세요. JSON만 반환하고 다른 설명은 하지 마세요."""
+        
+        messages = [
+            ('system', self.get_first_session_prompt()),
+            ('user', prompt)
+        ]
+        
+        try:
+            response = self.llm.invoke(messages)
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            logger.info(f"[PART2_GOAL] LLM 응답 (처음 1000자): {response_text[:1000]}")
+            
+            # JSON 파싱
+            import re
+            
+            # JSON 객체 찾기
+            json_match = re.search(r'\{[\s\S]*\}', response_text, re.DOTALL)
+            
+            # 코드 블록 안의 JSON 찾기
+            if not json_match:
+                code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})', response_text, re.DOTALL)
+                if code_block_match:
+                    json_match = code_block_match
+            
+            if json_match:
+                try:
+                    json_text = json_match.group() if hasattr(json_match, 'group') else json_match
+                    # 코드 블록 마커 제거
+                    json_text = re.sub(r'```(?:json)?\s*', '', json_text)
+                    json_text = re.sub(r'```\s*', '', json_text)
+                    json_text = json_text.strip()
+                    
+                    result = json.loads(json_text)
+                    
+                    selected_keywords = result.get('selected_keywords', [])
+                    part2_goal = result.get('part2_goal', '')
+                    tasks = result.get('tasks', [])
+                    
+                    # tasks 검증 및 보완
+                    if not isinstance(tasks, list):
+                        logger.error(f"[PART2_GOAL] tasks가 리스트가 아님: {type(tasks)}")
+                        tasks = []
+                    
+                    for task in tasks:
+                        if 'part' not in task:
+                            task['part'] = 2
+                        if 'status' not in task:
+                            task['status'] = 'pending'
+                    
+                    logger.info(f"[PART2_GOAL] 파싱 성공: 목표={part2_goal[:100]}, 키워드={selected_keywords}, Task={len(tasks)}개")
+                    
+                    return part2_goal, selected_keywords, tasks
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"[PART2_GOAL] JSON 파싱 실패: {str(e)}")
+                    json_text = json_match.group() if hasattr(json_match, 'group') else str(json_match)
+                    logger.error(f"[PART2_GOAL] JSON 텍스트: {json_text[:500]}")
+                    return "", [], []
+            else:
+                logger.error(f"[PART2_GOAL] JSON 객체를 찾을 수 없음")
+                logger.error(f"[PART2_GOAL] 전체 응답 텍스트: {response_text}")
+                return "", [], []
+        
+        except Exception as e:
+            import traceback
+            logger.error(f"[PART2_GOAL] 목표 수립 오류: {str(e)}")
+            logger.error(f"[PART2_GOAL] Traceback: {traceback.format_exc()}")
+            return "", [], []
     
     def create_part2_tasks(self, conversation_history: List[Dict]) -> List[Dict]:
         """

@@ -48,8 +48,16 @@ def create_conversation():
         
         # 세션 생성 및 페르소나 정보 저장
         from services.session_service import SessionService
+        from services.task_planner_service import TaskPlannerService
         session_service = SessionService()
+        task_planner = TaskPlannerService()
+        
         session = session_service.create_session(conversation_id)
+        
+        # Part 1 초기 Task 생성
+        initial_tasks = task_planner.create_initial_tasks("first_session")
+        if initial_tasks:
+            session_service.update_tasks(conversation_id, initial_tasks)
         
         # 페르소나 정보가 있으면 세션에 저장
         if persona:

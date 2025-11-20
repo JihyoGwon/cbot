@@ -455,6 +455,9 @@ async function updateSessionInfo() {
         // 현재 상태 표시 (Part, Task, Module)
         updateCurrentStatus(session);
         
+        // Part 2 목표 및 키워드 표시
+        updatePart2Goal(session);
+        
         // Task 목록 표시 (Part별 구분)
         updateTaskList(session);
         
@@ -523,6 +526,32 @@ function updateCurrentStatus(session) {
     }
 }
 
+// Part 2 목표 및 키워드 업데이트
+function updatePart2Goal(session) {
+    const part2GoalSection = document.getElementById('part2-goal-section');
+    const part2GoalText = document.getElementById('part2-goal-text');
+    const keywordsList = document.getElementById('keywords-list');
+    
+    const currentPart = session.current_part || 1;
+    const part2Goal = session.part2_goal;
+    const selectedKeywords = session.part2_selected_keywords || [];
+    
+    // Part 2 이상이고 목표가 있을 때만 표시
+    if (currentPart >= 2 && part2Goal) {
+        part2GoalSection.style.display = 'block';
+        part2GoalText.textContent = part2Goal;
+        
+        if (selectedKeywords.length > 0) {
+            keywordsList.innerHTML = selectedKeywords.map(keyword => 
+                `<span class="keyword-badge">${keyword}</span>`
+            ).join('');
+        } else {
+            keywordsList.innerHTML = '<span class="no-keywords">키워드 없음</span>';
+        }
+    } else {
+        part2GoalSection.style.display = 'none';
+    }
+}
 
 // Task 목록 업데이트 (Part별 구분)
 function updateTaskList(session) {

@@ -55,9 +55,24 @@
         </div>
         
         <div class="main-content">
-            <div class="chat-messages" id="chat-messages">
-                <div class="welcome-message">
-                    <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
+            <div class="chat-column">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="welcome-message">
+                        <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="message-input" 
+                            placeholder="메시지를 입력하세요..." 
+                            rows="1"
+                        ></textarea>
+                        <button id="send-btn" class="btn-primary">
+                            <span>전송</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -110,6 +125,18 @@
                         </div>
                     </div>
                     
+                    <!-- Part 2 목표 및 키워드 (Part 2 이상일 때만 표시) -->
+                    <div id="part2-goal-section" class="info-section" style="display: none;">
+                        <h4>🎯 Part 2 목표</h4>
+                        <div id="part2-goal-content" class="part2-goal-content">
+                            <div class="part2-goal-text" id="part2-goal-text">-</div>
+                            <div class="part2-keywords" id="part2-keywords">
+                                <div class="keywords-label">선택된 키워드:</div>
+                                <div class="keywords-list" id="keywords-list">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Task 목록 (Part별 구분) -->
                     <div class="info-section">
                         <h4>✅ Task 목록</h4>
@@ -134,19 +161,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="chat-input-container">
-            <div class="input-wrapper">
-                <textarea 
-                    id="message-input" 
-                    placeholder="메시지를 입력하세요..." 
-                    rows="1"
-                ></textarea>
-                <button id="send-btn" class="btn-primary">
-                    <span>전송</span>
-                </button>
             </div>
         </div>
     </div>
