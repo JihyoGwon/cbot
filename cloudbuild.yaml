@@ -1,0 +1,33 @@
+steps:
+  # 1. Docker 이미지 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$COMMIT_SHA', '.']
+  
+  # 2. Docker 이미지 푸시
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$COMMIT_SHA']
+
+  # 3. Cloud Run으로 배포
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '$_SERVICE_NAME'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated' # 외부 접근 허용 (필요 시 제거)
+
+# 이미지 태그 (빌드 기록용)
+images:
+  - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$COMMIT_SHA'
+
+# 대체 변수 (사용자가 요청한 부분)
+substitutions:
+  _SERVICE_NAME: cbot-service # 기본 서비스 이름
+  _REGION: asia-northeast3    # 기본 리전 (서울)
+
