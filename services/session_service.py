@@ -38,7 +38,8 @@ class SessionService:
             "supervision_log": [],
             "session_manager_log": [],  # Session Manager 평가 로그
             "completion_log": [],  # Task Completion Checker 로그
-            "message_count": 0
+            "message_count": 0,
+            "part2_task_update_count": 0  # Part 2 Task 업데이트 횟수 (최대 2회)
         }
         
         # Firestore에 세션 저장

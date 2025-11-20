@@ -188,6 +188,13 @@ class CounselorService:
             current_task = None
             if current_task_id:
                 current_task = next((t for t in current_tasks if t.get('id') == current_task_id), None)
+                
+                # 현재 Task가 다른 Part에 속해있으면 None으로 설정 (Part 전환 후 정리)
+                if current_task and current_task.get('part') != current_part:
+                    logger.info(f"[PART_CHECK] current_task가 다른 Part에 속함: task_part={current_task.get('part')}, current_part={current_part}")
+                    current_task = None
+                    current_task_id = None
+                    session['current_task'] = None
             
             # 병렬 실행
             futures = {}
@@ -372,6 +379,44 @@ class CounselorService:
                                     session['current_task'] = first_task.get('id')
                                     self.session_cache[conversation_id] = session
                                     logger.info(f"[PART_TRANSITION] Part 2 첫 번째 Task 선택: {first_task.get('id')}")
+                        
+                        # Part 3 Task 생성
+                        elif next_part == 3:
+                            part3_tasks = self.task_planner.create_part3_tasks()
+                            
+                            logger.info(f"[PART_TRANSITION] Part 3 Task 생성: {len(part3_tasks)}개 Task 생성됨")
+                            
+                            # 기존 Task에 추가
+                            current_tasks = current_tasks + part3_tasks
+                            
+                            # Firestore에 저장 (current_part와 tasks 함께 업데이트)
+                            session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
+                            session_ref.update({
+                                "current_part": next_part,
+                                "tasks": current_tasks,
+                                "updated_at": datetime.now()
+                            })
+                            
+                            logger.info(f"[PART_TRANSITION] Firestore 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
+                            
+                            # 캐시 업데이트
+                            session['current_part'] = next_part
+                            session['tasks'] = current_tasks
+                            self.session_cache[conversation_id] = session
+                            
+                            logger.info(f"[PART_TRANSITION] 캐시 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
+                            
+                            # Part 3의 첫 번째 Task 선택
+                            part3_pending = [t for t in part3_tasks if t.get('status') == 'pending']
+                            if part3_pending:
+                                first_task = part3_pending[0]
+                                self.session_service.set_current_task(conversation_id, first_task.get('id'))
+                                self.session_service.update_task_status(conversation_id, first_task.get('id'), 'in_progress')
+                                current_task = first_task
+                                current_task_id = first_task.get('id')
+                                session['current_task'] = first_task.get('id')
+                                self.session_cache[conversation_id] = session
+                                logger.info(f"[PART_TRANSITION] Part 3 첫 번째 Task 선택: {first_task.get('id')}")
             
             # 현재 Task가 없으면 첫 번째 Task 선택
             if not current_task and current_tasks:
@@ -610,6 +655,14 @@ class CounselorService:
                     if conversation_id in self.session_cache:
                         self.session_cache[conversation_id]['tasks'] = current_tasks
                         self.session_cache[conversation_id]['current_part'] = 3
+                    
+                    # Part 3의 첫 번째 Task 선택
+                    part3_pending = [t for t in part3_tasks if t.get('status') == 'pending']
+                    if part3_pending:
+                        first_task = part3_pending[0]
+                        self.session_service.set_current_task(conversation_id, first_task.get('id'))
+                        self.session_service.update_task_status(conversation_id, first_task.get('id'), 'in_progress')
+                        logger.info(f"[PART_TRANSITION_ASYNC] Part 3 첫 번째 Task 선택: {first_task.get('id')}")
                 
                 logger.info(f"[PART_TRANSITION] conversation_id={conversation_id[:8]}... | "
                            f"part {current_part} → {next_part}")
@@ -711,6 +764,20 @@ class CounselorService:
                                       conversation_history: List[Dict], user_state: Dict) -> None:
         """Part 2 Task 업데이트 확인 (비동기)"""
         try:
+            # 세션에서 업데이트 횟수 확인
+            session = self.session_service.get_session(conversation_id)
+            if not session:
+                logger.warning(f"[PART2_UPDATE] 세션을 찾을 수 없음")
+                return
+            
+            update_count = session.get('part2_task_update_count', 0)
+            MAX_UPDATE_COUNT = 2
+            
+            # 이미 최대 횟수에 도달했으면 업데이트하지 않음
+            if update_count >= MAX_UPDATE_COUNT:
+                logger.info(f"[PART2_UPDATE] 업데이트 횟수 제한 도달: {update_count}/{MAX_UPDATE_COUNT}회")
+                return
+            
             # 업데이트 조건 확인
             should_update = (
                 user_state.get('topic_change', False) or
@@ -724,7 +791,8 @@ class CounselorService:
                            f"circular={user_state.get('circular_conversation')}")
                 return
             
-            logger.info(f"[PART2_UPDATE] Task 업데이트 시작: topic_change={user_state.get('topic_change')}, "
+            logger.info(f"[PART2_UPDATE] Task 업데이트 시작 ({update_count + 1}/{MAX_UPDATE_COUNT}회): "
+                       f"topic_change={user_state.get('topic_change')}, "
                        f"resistance={user_state.get('resistance_detected')}, "
                        f"circular={user_state.get('circular_conversation')}")
             
@@ -740,11 +808,20 @@ class CounselorService:
                 # Firestore 업데이트
                 self.session_service.update_tasks(conversation_id, updated_tasks)
                 
+                # 업데이트 횟수 증가
+                session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
+                new_update_count = update_count + 1
+                session_ref.update({
+                    "part2_task_update_count": new_update_count,
+                    "updated_at": datetime.now()
+                })
+                
                 # 캐시 업데이트
                 if conversation_id in self.session_cache:
                     self.session_cache[conversation_id]['tasks'] = updated_tasks
+                    self.session_cache[conversation_id]['part2_task_update_count'] = new_update_count
                 
-                logger.info(f"[PART2_UPDATE] Task 업데이트 완료: {len(updated_tasks)}개 Task")
+                logger.info(f"[PART2_UPDATE] Task 업데이트 완료 ({new_update_count}/{MAX_UPDATE_COUNT}회): {len(updated_tasks)}개 Task")
             else:
                 logger.debug(f"[PART2_UPDATE] Task 업데이트 없음 (조건 충족했으나 변경사항 없음)")
         
