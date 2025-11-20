@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_session import Session
 from services.counselor_service import CounselorService
 from services.firestore_service import FirestoreService
+from services.persona_service import PersonaService
 from config import Config
 
 # Flask 앱 로깅 설정
@@ -19,6 +20,7 @@ Session(app)
 # 서비스 인스턴스 생성
 counselor_service = CounselorService()
 firestore_service = FirestoreService()
+persona_service = PersonaService()
 
 
 @app.route('/')
@@ -256,6 +258,183 @@ def list_conversations():
         return jsonify({
             'conversations': conversations,
             'count': len(conversations)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+# ==================== Admin API ====================
+
+@app.route('/admin', methods=['GET'])
+def admin_page():
+    """페르소나 관리 Admin 페이지"""
+    return render_template('admin.html')
+
+
+@app.route('/admin/api/personas', methods=['GET'])
+def list_personas():
+    """모든 페르소나 타입 목록 가져오기"""
+    try:
+        personas = persona_service.list_personas()
+        
+        # datetime 객체를 문자열로 변환
+        from datetime import datetime
+        for persona in personas:
+            for key in ['created_at', 'updated_at']:
+                if key in persona and isinstance(persona[key], datetime):
+                    persona[key] = persona[key].isoformat()
+        
+        return jsonify({
+            'personas': personas,
+            'count': len(personas)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas', methods=['POST'])
+def create_persona():
+    """새 페르소나 타입 생성"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('id'):
+            return jsonify({'error': '페르소나 ID가 필요합니다.'}), 400
+        
+        persona = persona_service.create_persona(data)
+        
+        # datetime 객체를 문자열로 변환
+        from datetime import datetime
+        for key in ['created_at', 'updated_at']:
+            if key in persona and isinstance(persona[key], datetime):
+                persona[key] = persona[key].isoformat()
+        
+        return jsonify({
+            'message': '페르소나가 생성되었습니다.',
+            'persona': persona
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/<persona_id>', methods=['GET'])
+def get_persona(persona_id):
+    """페르소나 타입 가져오기"""
+    try:
+        persona = persona_service.get_persona(persona_id)
+        
+        if not persona:
+            return jsonify({'error': '페르소나를 찾을 수 없습니다.'}), 404
+        
+        # datetime 객체를 문자열로 변환
+        from datetime import datetime
+        for key in ['created_at', 'updated_at']:
+            if key in persona and isinstance(persona[key], datetime):
+                persona[key] = persona[key].isoformat()
+        
+        return jsonify(persona), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/<persona_id>', methods=['PUT'])
+def update_persona(persona_id):
+    """페르소나 타입 수정"""
+    try:
+        data = request.get_json()
+        
+        persona = persona_service.update_persona(persona_id, data)
+        
+        # datetime 객체를 문자열로 변환
+        from datetime import datetime
+        for key in ['created_at', 'updated_at']:
+            if key in persona and isinstance(persona[key], datetime):
+                persona[key] = persona[key].isoformat()
+        
+        return jsonify({
+            'message': '페르소나가 수정되었습니다.',
+            'persona': persona
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/<persona_id>', methods=['DELETE'])
+def delete_persona(persona_id):
+    """페르소나 타입 삭제"""
+    try:
+        persona_service.delete_persona(persona_id)
+        
+        return jsonify({
+            'message': '페르소나가 삭제되었습니다.'
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/common-keywords', methods=['GET'])
+def get_common_keywords():
+    """공통 키워드 가져오기"""
+    try:
+        keywords = persona_service.get_common_keywords()
+        return jsonify({'keywords': keywords}), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/common-keywords', methods=['PUT'])
+def update_common_keywords():
+    """공통 키워드 업데이트"""
+    try:
+        data = request.get_json()
+        keywords = data.get('keywords', [])
+        
+        if len(keywords) != 4:
+            return jsonify({'error': '공통 키워드는 정확히 4개여야 합니다.'}), 400
+        
+        updated_keywords = persona_service.update_common_keywords(keywords)
+        
+        return jsonify({
+            'message': '공통 키워드가 업데이트되었습니다.',
+            'keywords': updated_keywords
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/personas/initialize', methods=['POST'])
+def initialize_personas():
+    """기본 페르소나 타입 초기화 (16개)"""
+    try:
+        result = persona_service.initialize_default_personas()
+        
+        return jsonify({
+            'message': f'{result["created"]}개의 페르소나가 생성되었습니다.',
+            'result': result
         }), 200
         
     except Exception as e:

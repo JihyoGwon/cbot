@@ -63,9 +63,9 @@ Task 생성 시 고려사항:
                     "id": "task_rapport_1",
                     "part": 1,
                     "priority": "high",
-                    "title": "사용자에게 따뜻하게 환영 인사하기",
-                    "description": "사용자를 따뜻하게 환영하고, 편안하게 이야기할 수 있음을 전달",
+                    "title": "환영 및 인사",
                     "target": "사용자가 편안하게 느끼고 대화를 시작할 수 있는 분위기 조성",
+                    "description": "상담사는 사용자를 따뜻하게 환영하고, 가볍게 오늘 안부를 묻는다.",
                     "completion_criteria": "사용자가 환영 인사에 응답하고 대화를 시작했을 때 완료",
                     "status": "pending"
                 },
@@ -74,9 +74,9 @@ Task 생성 시 고려사항:
                     "part": 1,
                     "priority": "medium",
                     "title": "관계 형성하기",
-                    "description": "사용자와 신뢰 관계를 구축하고 편안한 분위기 만들기",
                     "target": "사용자가 편안하게 느끼고 신뢰할 수 있는 관계 형성",
-                    "completion_criteria": "사용자가 편안하게 대화를 이어가거나 핵심 고민을 얘기함",
+                    "description": "상담사는 사용자가 어떤 대화를 원하는지 또는 어떤 고민을 가지고 있는지 파악한다.",
+                    "completion_criteria": "사용자가 3턴 이상 편안하게 대화를 이어가거나, 핵심 고민을 얘기함",
                     "status": "pending"
                 }
             ]
@@ -112,6 +112,7 @@ Part 2는 사용자의 문제 상황을 깊이 탐색하는 단계입니다. 위
 4. 문제의 원인과 패턴을 찾기 위한 Task
 
 각 Task는 구체적이고 달성 가능한 목표로 작성하세요. Task는 module_id 없이 생성하세요 (Module은 나중에 선택됩니다).
+깊은 탐색이 중요하나, 사용자에게 부담을 주는 것을 피해야 합니다. 예를 들어, 3가지 이상 구체적인 상황 설명을 요청하는 것은 피해야 합니다.
 
 JSON 형식으로 Task 목록을 반환하세요:
 [
@@ -120,9 +121,9 @@ JSON 형식으로 Task 목록을 반환하세요:
     "part": 2,
     "priority": "high|medium|low",
     "title": "Task 제목",
-    "description": "Task 설명",
-    "target": "완료 목표",
-    "completion_criteria": "완료 판단 기준",
+    "target": "Task 목표",    
+    "description": "Task 설명 (3문장 이하)",
+    "completion_criteria": "Task 완료 판단 기준",
     "status": "pending"
   }}
 ]

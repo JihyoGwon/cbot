@@ -91,7 +91,7 @@ class CounselorService:
         """
         return """당신은 전문적인 상담 에이전트 Cbot입니다. 다음 원칙을 따라 상담을 진행하세요:
 
-1. **공감과 경청**: 사용자의 감정과 상황을 깊이 이해하고, 진심으로 공감하세요.
+1. **공감과 경청**: 사용자의 감정과 상황을 깊이 이해하고, 진심으로 공감하세요. (단 짐작하는 공감은 피해야 합니다.)
 2. **반말 사용**: 친근하고 편안한 분위기를 위해 반말을 사용하세요.
 3. **질문하기**: 사용자의 문제를 더 잘 이해하기 위해 적절한 질문을 던지세요.
 4. **긍정적 지지**: 사용자의 강점을 인정하고, 긍정적인 변화를 격려하세요.
@@ -123,44 +123,52 @@ class CounselorService:
         """
         base_prompt = self._get_base_prompt()
         
-        # Part 정보
-        part_info = f"\n현재 Part {current_part} 진행 중입니다.\n"
+        # === 계층적 구조화 ===
+        prompt_sections = []
         
-        # Supervision 피드백 (점수 < 7일 때만)
-        supervision_guidance = ""
-        if recent_supervision and (recent_supervision.get('score', 0) < 7 or recent_supervision.get('needs_improvement', False)):
-            score = recent_supervision.get('score', 0)
-            improvements = recent_supervision.get('improvements', '')
-            supervision_guidance = f"\n=== 개선 필요 ===\n점수: {score}/10\n"
-            if improvements and improvements != '없음':
-                supervision_guidance += f"개선점: {improvements}\n"
-            supervision_guidance += "\n위 피드백을 참고하여 응답을 개선하세요.\n"
-        
-        # Module 변경 알림
-        module_change_info = ""
-        if module_changed and module_change_reason:
-            module_change_info = f"\n=== Module 변경 ===\n이유: {module_change_reason}\n위 이유를 고려하여 대화를 진행하세요.\n"
-        
-        # Task 정보 (최소화)
-        task_info = ""
+        # 1. 현재 작업 (Task) - 최우선 목표
         if current_task:
-            task_info = f"\n현재 Task: {current_task.get('title', '')}\n목표: {current_task.get('target', '')}\n"
+            task_section = f"""
+=== 현재 작업 (Task) ===
+목표: {current_task.get('description', '')}"""
+            
             if execution_guide:
-                task_info += f"실행 가이드: {execution_guide}\n"
-            # Task의 restrictions가 있으면 명시적으로 포함
+                task_section += f"\n실행 가이드: {execution_guide}"
+            
             if current_task.get('restrictions'):
-                task_info += f"\n⚠️ **중요 제약사항**: {current_task.get('restrictions')}\n"
+                task_section += f"\n⚠️ 제약사항: {current_task.get('restrictions')}"
+            
+            prompt_sections.append(task_section)
         
-        # Module 가이드라인 (요약만)
-        module_info = ""
+        # 2. 사용 도구 (Module) - Task 달성을 위한 도구
         if module_guidelines:
-            # 가이드라인을 요약 (3-5줄)
+            module_section = "\n=== 사용 도구 (Module) ==="
+            
+            # 가이드라인 요약 (3-5줄)
             lines = module_guidelines.split('\n')
             summary_lines = [line.strip() for line in lines[:5] if line.strip()]
             if summary_lines:
-                module_info = f"\nModule 가이드라인:\n" + "\n".join(summary_lines) + "\n"
+                module_section += "\n" + "\n".join(summary_lines)
+            
+            prompt_sections.append(module_section)
         
-        return base_prompt + part_info + supervision_guidance + module_change_info + task_info + module_info
+        # 3. 피드백 (Supervision) - 개선 필요 시에만
+        if recent_supervision and (recent_supervision.get('score', 0) < 7 or recent_supervision.get('needs_improvement', False)):
+            supervision_section = "\n=== 피드백 (개선 필요) ==="
+            score = recent_supervision.get('score', 0)
+            improvements = recent_supervision.get('improvements', '')
+            supervision_section += f"\n점수: {score}/10"
+            if improvements and improvements != '없음':
+                supervision_section += f"\n개선점: {improvements}"
+            prompt_sections.append(supervision_section)
+        
+        # 모든 섹션 결합
+        structured_prompt = "\n".join(prompt_sections)
+        
+        # 대화 기록과 구분하기 위한 구분선 추가
+        separator = "\n\n" + "="*50 + "\n위 지침을 바탕으로 아래 대화를 진행하세요.\n" + "="*50 + "\n"
+        
+        return base_prompt + structured_prompt + separator
     
     def chat(self, conversation_id: str, message: str, 
              conversation_history: Optional[List[Dict]] = None) -> Dict:

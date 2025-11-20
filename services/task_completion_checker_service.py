@@ -44,7 +44,7 @@ class TaskCompletionCheckerService:
 
 **2. "sufficient" 판단 기준 (충분히 다뤘음):**
 다음 조건 중 하나라도 충족되면 `sufficient`로 판단:
-- Task의 핵심 목표(target)가 기본적으로 달성되었을 때
+- Task의 핵심 목표(completion_criteria)가 기본적으로 달성되었을 때
 - 상담사가 Task를 수행했고 사용자가 자연스럽게 응답했을 때
 - 더 깊이 다루기보다는 다음 Task로 진행하는 것이 자연스러울 때
 
