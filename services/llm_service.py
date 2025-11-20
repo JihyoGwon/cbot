@@ -10,7 +10,8 @@ class LLMService:
     
     def __init__(self):
         """LLM 서비스 초기화"""
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
+        if Config.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(Config.GOOGLE_APPLICATION_CREDENTIALS):
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
         
         self.llm = ChatVertexAI(
             model_name=Config.VERTEX_AI_MODEL,

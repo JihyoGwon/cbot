@@ -12,7 +12,8 @@ class UserStateDetectorService:
     """User State Detector - 사용자 저항, 감정, 주제 변경 등 감지"""
     
     def __init__(self):
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
+        if Config.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(Config.GOOGLE_APPLICATION_CREDENTIALS):
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
         
         self.llm = ChatVertexAI(
             model_name=Config.VERTEX_AI_MODEL,

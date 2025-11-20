@@ -9,7 +9,8 @@ class TaskCompletionCheckerService:
     """Task Completion Checker - Task 완료 여부 판단 및 상태 업데이트"""
     
     def __init__(self):
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
+        if Config.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(Config.GOOGLE_APPLICATION_CREDENTIALS):
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = Config.GOOGLE_APPLICATION_CREDENTIALS
         
         self.llm = ChatVertexAI(
             model_name=Config.VERTEX_AI_MODEL,
