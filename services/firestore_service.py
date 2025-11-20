@@ -15,8 +15,12 @@ class FirestoreService:
         # Firebase Admin SDK 초기화 (이미 초기화되어 있지 않은 경우만)
         if not firebase_admin._apps:
             cred_path = Config.GOOGLE_APPLICATION_CREDENTIALS
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
+            if cred_path and os.path.exists(cred_path):
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+            else:
+                # 파일이 없으면 기본 자격 증명 사용 (Cloud Run 등)
+                firebase_admin.initialize_app()
         
         self.db = firestore.client()
         self.collection_name = Config.FIRESTORE_COLLECTION
