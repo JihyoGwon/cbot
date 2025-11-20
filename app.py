@@ -42,8 +42,18 @@ def create_conversation():
         data = request.get_json()
         user_id = data.get('user_id', 'anonymous')
         initial_message = data.get('message', None)
+        persona = data.get('persona', None)  # 페르소나 정보
         
         conversation_id = firestore_service.create_conversation(user_id, initial_message)
+        
+        # 세션 생성 및 페르소나 정보 저장
+        from services.session_service import SessionService
+        session_service = SessionService()
+        session = session_service.create_session(conversation_id)
+        
+        # 페르소나 정보가 있으면 세션에 저장
+        if persona:
+            session_service.update_user_persona(conversation_id, persona)
         
         return jsonify({
             'conversation_id': conversation_id,
@@ -51,7 +61,8 @@ def create_conversation():
         }), 201
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 
 @app.route('/api/conversations/<conversation_id>/chat', methods=['POST'])

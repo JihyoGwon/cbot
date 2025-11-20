@@ -17,6 +17,43 @@
             </div>
         </div>
         
+        <!-- 페르소나 선택 모달 -->
+        <div id="persona-selection-modal" class="persona-modal">
+            <div class="persona-modal-content">
+                <h2>상담 시작하기</h2>
+                <p class="persona-modal-description">상담을 시작하기 전에 페르소나 타입과 상담 레벨을 선택해주세요.</p>
+                
+                <div class="persona-selection-form">
+                    <div class="form-group">
+                        <label for="persona-type-select">페르소나 타입 *</label>
+                        <select id="persona-type-select" class="form-select" required>
+                            <option value="">타입을 선택하세요</option>
+                        </select>
+                        <small id="persona-type-description" class="form-description"></small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="counseling-level-select">상담 레벨 *</label>
+                        <select id="counseling-level-select" class="form-select" required>
+                            <option value="">레벨을 선택하세요</option>
+                            <option value="1">레벨 1 - 초기 (라포 형성, 문제 인식)</option>
+                            <option value="2">레벨 2 - 탐색 (감정 탐색, 상황 파악)</option>
+                            <option value="3">레벨 3 - 이해 (패턴 인식, 원인 파악)</option>
+                            <option value="4">레벨 4 - 변화 (행동 변화, 대처 전략)</option>
+                            <option value="5">레벨 5 - 말기 (문제 해결, 유지)</option>
+                        </select>
+                        <small class="form-description">초기 상담은 레벨 1을 권장합니다.</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button id="start-conversation-btn" class="btn-primary btn-large" disabled>
+                            새 대화 시작
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="main-content">
             <div class="chat-messages" id="chat-messages">
                 <div class="welcome-message">

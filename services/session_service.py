@@ -34,6 +34,7 @@ class SessionService:
             "previous_module": None,  # 이전 Module ID (변경 시)
             "module_change_reason": None,  # Module 변경 이유
             "user_info": {},
+            "user_persona": None,  # 페르소나 정보 (신규)
             "goals": [],
             "supervision_log": [],
             "session_manager_log": [],  # Session Manager 평가 로그
@@ -47,6 +48,26 @@ class SessionService:
         session_ref.set(session_data)
         
         return session_data
+    
+    def update_user_persona(self, conversation_id: str, persona: Dict) -> None:
+        """
+        사용자 페르소나 정보 업데이트
+        
+        Args:
+            conversation_id: 대화 ID
+            persona: 페르소나 정보
+                {
+                    "type": "type_a",
+                    "type_specific_keywords": [...],
+                    "common_keywords": [...],
+                    "counseling_level": 1
+                }
+        """
+        session_ref = self.firestore.db.collection("sessions").document(conversation_id)
+        session_ref.update({
+            "user_persona": persona,
+            "updated_at": datetime.now()
+        })
     
     def get_session(self, conversation_id: str) -> Optional[Dict]:
         """세션 가져오기"""

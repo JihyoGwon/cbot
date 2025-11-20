@@ -15,10 +15,35 @@ const closeSidebarBtn = document.getElementById('close-sidebar-btn');
 // 세션 정보 업데이트 인터벌
 let sessionUpdateInterval = null;
 
+// 페르소나 선택 관련 변수
+let selectedPersonaType = null;
+let selectedCounselingLevel = null;
+
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
-    // 새 대화 시작
-    newConversationBtn.addEventListener('click', startNewConversation);
+    // 페르소나 선택 모달 초기화
+    initPersonaSelection();
+    
+    // 새 대화 시작 버튼 (페르소나 선택 모달에서)
+    document.getElementById('start-conversation-btn').addEventListener('click', startNewConversationWithPersona);
+    
+    // 페르소나 타입 선택 변경
+    document.getElementById('persona-type-select').addEventListener('change', (e) => {
+        selectedPersonaType = e.target.value;
+        updatePersonaDescription(e.target.value);
+        checkCanStartConversation();
+    });
+    
+    // 상담 레벨 선택 변경
+    document.getElementById('counseling-level-select').addEventListener('change', (e) => {
+        selectedCounselingLevel = parseInt(e.target.value);
+        checkCanStartConversation();
+    });
+    
+    // 새 대화 시작 버튼 (헤더)
+    newConversationBtn.addEventListener('click', () => {
+        showPersonaSelectionModal();
+    });
     
     // 전송 버튼 클릭
     sendBtn.addEventListener('click', sendMessage);
@@ -46,48 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
         messageInput.style.height = messageInput.scrollHeight + 'px';
     });
     
-    // 첫 대화 자동 생성
-    startNewConversation();
+    // 페르소나 선택 모달 표시
+    showPersonaSelectionModal();
 });
 
-// 새 대화 시작
+// 새 대화 시작 (페르소나 선택 없이 - 호환성 유지)
 async function startNewConversation() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/conversations`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_id: 'web_user'
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error('대화 생성 실패');
-        }
-        
-        const data = await response.json();
-        conversationId = data.conversation_id;
-        conversationIdDisplay.textContent = `대화 ID: ${conversationId.substring(0, 8)}...`;
-        
-        // 채팅 메시지 초기화
-        chatMessages.innerHTML = `
-            <div class="welcome-message">
-                <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
-            </div>
-        `;
-        
-        // 세션 정보 업데이트 시작
-        startSessionUpdates();
-        
-        // 기존 대화 불러오기 (선택사항)
-        // loadConversationHistory();
-        
-    } catch (error) {
-        console.error('대화 생성 오류:', error);
-        showError('대화를 시작할 수 없습니다. 다시 시도해주세요.');
-    }
+    // 페르소나 선택 모달 표시
+    showPersonaSelectionModal();
 }
 
 // 메시지 전송
@@ -99,7 +90,8 @@ async function sendMessage() {
     }
     
     if (!conversationId) {
-        await startNewConversation();
+        showPersonaSelectionModal();
+        return;
     }
     
     // 사용자 메시지 표시
@@ -745,6 +737,180 @@ async function loadConversationHistory() {
         
     } catch (error) {
         console.error('대화 기록 불러오기 오류:', error);
+    }
+}
+
+// 페르소나 선택 모달 초기화
+async function initPersonaSelection() {
+    try {
+        console.log('페르소나 목록 로드 시작...');
+        const response = await fetch(`${API_BASE_URL}/admin/api/personas`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('페르소나 목록 로드 실패:', response.status, errorData);
+            showPersonaLoadError();
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('페르소나 목록 응답:', data);
+        
+        if (data.personas && Array.isArray(data.personas) && data.personas.length > 0) {
+            const select = document.getElementById('persona-type-select');
+            select.innerHTML = '<option value="">타입을 선택하세요</option>';
+            
+            data.personas.forEach(persona => {
+                const option = document.createElement('option');
+                option.value = persona.id;
+                option.textContent = `${persona.name} (${persona.id})`;
+                select.appendChild(option);
+            });
+            
+            console.log(`${data.personas.length}개의 페르소나 타입이 로드되었습니다.`);
+        } else {
+            console.warn('페르소나 목록이 비어있습니다.');
+            showPersonaLoadError('페르소나 타입이 없습니다. Admin 페이지에서 페르소나를 생성해주세요.');
+        }
+    } catch (error) {
+        console.error('페르소나 목록 로드 오류:', error);
+        showPersonaLoadError('페르소나 목록을 불러오는데 실패했습니다.');
+    }
+}
+
+// 페르소나 로드 오류 표시
+function showPersonaLoadError(message = '페르소나 목록을 불러올 수 없습니다.') {
+    const select = document.getElementById('persona-type-select');
+    if (select) {
+        select.innerHTML = `<option value="">${message}</option>`;
+        select.disabled = true;
+    }
+}
+
+// 페르소나 설명 업데이트
+async function updatePersonaDescription(personaId) {
+    if (!personaId) {
+        const descEl = document.getElementById('persona-type-description');
+        if (descEl) descEl.textContent = '';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/api/personas/${personaId}`);
+        const data = await response.json();
+        
+        const descEl = document.getElementById('persona-type-description');
+        if (descEl) {
+            if (response.ok && data.description) {
+                descEl.textContent = data.description;
+            } else {
+                descEl.textContent = '';
+            }
+        }
+    } catch (error) {
+        console.error('페르소나 정보 로드 오류:', error);
+        const descEl = document.getElementById('persona-type-description');
+        if (descEl) descEl.textContent = '';
+    }
+}
+
+// 대화 시작 가능 여부 확인
+function checkCanStartConversation() {
+    const startBtn = document.getElementById('start-conversation-btn');
+    if (startBtn) {
+        if (selectedPersonaType && selectedCounselingLevel) {
+            startBtn.disabled = false;
+        } else {
+            startBtn.disabled = true;
+        }
+    }
+}
+
+// 페르소나 선택 모달 표시
+function showPersonaSelectionModal() {
+    const modal = document.getElementById('persona-selection-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        
+        // 선택 초기화
+        selectedPersonaType = null;
+        selectedCounselingLevel = null;
+        const typeSelect = document.getElementById('persona-type-select');
+        const levelSelect = document.getElementById('counseling-level-select');
+        const descEl = document.getElementById('persona-type-description');
+        const startBtn = document.getElementById('start-conversation-btn');
+        
+        if (typeSelect) typeSelect.value = '';
+        if (levelSelect) levelSelect.value = '';
+        if (descEl) descEl.textContent = '';
+        if (startBtn) startBtn.disabled = true;
+    }
+}
+
+// 페르소나 선택 모달 숨기기
+function hidePersonaSelectionModal() {
+    const modal = document.getElementById('persona-selection-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// 페르소나 선택 후 새 대화 시작
+async function startNewConversationWithPersona() {
+    if (!selectedPersonaType || !selectedCounselingLevel) {
+        alert('페르소나 타입과 상담 레벨을 선택해주세요.');
+        return;
+    }
+    
+    try {
+        // 페르소나 정보 가져오기
+        const personaResponse = await fetch(`${API_BASE_URL}/admin/api/personas/${selectedPersonaType}`);
+        const personaData = await personaResponse.json();
+        
+        if (!personaResponse.ok) {
+            throw new Error('페르소나 정보를 가져오는데 실패했습니다.');
+        }
+        
+        // 대화 생성 (페르소나 정보 포함)
+        const response = await fetch(`${API_BASE_URL}/api/conversations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: 'web_user',
+                persona: {
+                    type: selectedPersonaType,
+                    type_specific_keywords: personaData.type_specific_keywords || [],
+                    common_keywords: personaData.common_keywords || [],
+                    counseling_level: selectedCounselingLevel
+                }
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('대화 생성 실패');
+        }
+        
+        const data = await response.json();
+        conversationId = data.conversation_id;
+        conversationIdDisplay.textContent = `대화 ID: ${conversationId.substring(0, 8)}...`;
+        
+        // 채팅 메시지 초기화
+        chatMessages.innerHTML = `
+            <div class="welcome-message">
+                <p>안녕! 나는 CBot이야. 편하게 이야기해줘. 무엇이든 들어줄게. 💙</p>
+            </div>
+        `;
+        
+        // 페르소나 선택 모달 숨기기
+        hidePersonaSelectionModal();
+        
+        // 세션 정보 업데이트 시작
+        startSessionUpdates();
+    } catch (error) {
+        console.error('대화 생성 오류:', error);
+        alert('대화를 시작하는데 실패했습니다. 다시 시도해주세요.');
     }
 }
 
