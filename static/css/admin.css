@@ -10,12 +10,83 @@ body {
     background-color: #f5f5f5;
     color: #333;
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
-.admin-container {
-    max-width: 1200px;
-    margin: 0 auto;
+/* 레이아웃 */
+.admin-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* 좌측 사이드바 */
+.admin-sidebar {
+    width: 250px;
+    background: white;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    z-index: 100;
+}
+
+.sidebar-header {
     padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-header h2 {
+    font-size: 20px;
+    color: #333;
+    font-weight: 600;
+}
+
+.sidebar-menu {
+    flex: 1;
+    padding: 10px 0;
+    overflow-y: auto;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: #666;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.menu-item:hover {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.menu-item.active {
+    background-color: #fff9e6;
+    color: #333;
+    border-left-color: #FFD700;
+    font-weight: 500;
+}
+
+.menu-icon {
+    font-size: 20px;
+    margin-right: 12px;
+    width: 24px;
+    text-align: center;
+}
+
+.menu-text {
+    font-size: 14px;
+}
+
+/* 메인 콘텐츠 영역 */
+.admin-main {
+    flex: 1;
+    margin-left: 250px;
+    padding: 20px;
+    min-height: 100vh;
 }
 
 .admin-header {
@@ -45,6 +116,14 @@ body {
     gap: 20px;
 }
 
+.content-page {
+    display: none;
+}
+
+.content-page.active {
+    display: block;
+}
+
 .section {
     background: white;
     padding: 20px;
@@ -60,92 +139,162 @@ body {
     padding-bottom: 10px;
 }
 
-/* 공통 키워드 섹션 */
-.common-keywords-section {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+/* 섹션 설명 */
+.section-description {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #FFD700;
+    border-radius: 4px;
 }
 
-.keywords-input-group {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+/* 공통 키워드 폼 */
+.common-keywords-form {
+    margin-top: 20px;
+}
+
+.keywords-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    margin-bottom: 20px;
+}
+
+.keywords-table thead {
+    background-color: #f8f9fa;
+}
+
+.keywords-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 14px;
+}
+
+.keywords-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.keywords-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.keywords-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.keyword-number {
+    text-align: center;
+    font-weight: 600;
+    color: #666;
+    width: 100px;
+    background-color: #f8f9fa;
 }
 
 .keyword-input {
-    padding: 10px;
+    width: 100%;
+    padding: 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
+    transition: all 0.2s ease;
 }
 
 .keyword-input:focus {
     outline: none;
     border-color: #FFD700;
-    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2);
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+    background-color: #fffef5;
 }
 
-/* 페르소나 목록 */
-.personas-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
+.keyword-input::placeholder {
+    color: #bbb;
 }
 
-.persona-card {
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
-    transition: all 0.3s ease;
-}
-
-.persona-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-}
-
-.persona-card-header {
+.form-actions-bottom {
     display: flex;
-    justify-content: space-between;
-    align-items: start;
-    margin-bottom: 10px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
 }
 
-.persona-card-title {
-    font-size: 18px;
-    font-weight: bold;
+.btn-large {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+/* 페르소나 테이블 */
+.table-container {
+    overflow-x: auto;
+}
+
+.personas-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.personas-table thead {
+    background-color: #f8f9fa;
+}
+
+.personas-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 14px;
+}
+
+.personas-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 14px;
+    color: #666;
+}
+
+.personas-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.personas-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.persona-id {
+    font-family: monospace;
+    font-size: 12px;
+    color: #666;
+    background: #f0f0f0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.persona-name {
+    font-weight: 500;
     color: #333;
 }
 
-.persona-card-id {
-    font-size: 12px;
+.persona-description {
     color: #666;
-    background: #e0e0e0;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.persona-card-description {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 15px;
+    max-width: 300px;
     line-height: 1.5;
 }
 
-.persona-card-keywords {
-    margin-bottom: 15px;
+.keywords-cell {
+    max-width: 250px;
 }
 
-.persona-card-keywords h4 {
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-}
-
-.persona-card-keywords .keywords-list {
+.keywords-list {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
@@ -156,8 +305,9 @@ body {
     color: #333;
     padding: 4px 8px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .keyword-tag.common {
@@ -165,10 +315,10 @@ body {
     color: #666;
 }
 
-.persona-card-actions {
+.table-actions {
     display: flex;
     gap: 5px;
-    margin-top: 10px;
+    white-space: nowrap;
 }
 
 .btn {
@@ -343,6 +493,20 @@ body {
 
 /* 반응형 */
 @media (max-width: 768px) {
+    .admin-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .admin-sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .admin-main {
+        margin-left: 0;
+        width: 100%;
+    }
+    
     .admin-header {
         flex-direction: column;
         align-items: flex-start;
@@ -358,8 +522,33 @@ body {
         grid-template-columns: 1fr;
     }
     
-    .personas-list {
-        grid-template-columns: 1fr;
+    .table-container {
+        overflow-x: scroll;
+    }
+    
+    .personas-table {
+        min-width: 800px;
+    }
+    
+    .personas-table th,
+    .personas-table td {
+        padding: 8px;
+        font-size: 12px;
+    }
+    
+    /* 모바일에서 사이드바 토글 버튼 추가 가능 */
+    .mobile-menu-toggle {
+        display: block;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 101;
+        background: white;
+        border: none;
+        padding: 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: pointer;
     }
 }
 

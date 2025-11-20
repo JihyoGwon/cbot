@@ -7,6 +7,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPersonas();
     loadCommonKeywords();
     
+    // 사이드바 메뉴 이벤트 리스너
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const menu = item.getAttribute('data-menu');
+            switchMenu(menu);
+        });
+    });
+    
     // 이벤트 리스너 등록
     document.getElementById('add-persona-btn').addEventListener('click', () => {
         openPersonaModal();
@@ -39,7 +48,57 @@ document.addEventListener('DOMContentLoaded', () => {
             closePersonaModal();
         }
     });
+    
+    // 기본 메뉴 설정
+    switchMenu('personas');
 });
+
+// 메뉴 전환 함수
+function switchMenu(menu) {
+    // 모든 메뉴 아이템 비활성화
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // 모든 페이지 숨기기
+    document.querySelectorAll('.content-page').forEach(page => {
+        page.classList.remove('active');
+    });
+    
+    // 선택된 메뉴 활성화
+    const menuItem = document.querySelector(`[data-menu="${menu}"]`);
+    if (menuItem) {
+        menuItem.classList.add('active');
+    }
+    
+    // 해당 페이지 표시
+    const page = document.getElementById(`${menu}-page`);
+    if (page) {
+        page.classList.add('active');
+    }
+    
+    // 헤더 제목 및 액션 버튼 업데이트
+    const pageTitle = document.getElementById('page-title');
+    const headerActions = document.getElementById('header-actions');
+    
+    if (menu === 'personas') {
+        pageTitle.textContent = '페르소나 목록';
+        headerActions.innerHTML = `
+            <button id="init-default-btn" class="btn-primary">기본 페르소나 초기화</button>
+            <button id="add-persona-btn" class="btn-primary">+ 새 페르소나 추가</button>
+        `;
+        // 버튼 이벤트 리스너 재등록
+        document.getElementById('add-persona-btn').addEventListener('click', () => {
+            openPersonaModal();
+        });
+        document.getElementById('init-default-btn').addEventListener('click', () => {
+            initializeDefaultPersonas();
+        });
+    } else if (menu === 'common-keywords') {
+        pageTitle.textContent = '공통 키워드 관리';
+        headerActions.innerHTML = '';
+    }
+}
 
 // 페르소나 목록 로드
 async function loadPersonas() {
@@ -71,41 +130,43 @@ function renderPersonas(personas) {
     
     // personas가 배열이 아닌 경우 처리
     if (!Array.isArray(personas)) {
-        container.innerHTML = '<div class="loading">페르소나 데이터 형식이 올바르지 않습니다.</div>';
+        container.innerHTML = '<tr><td colspan="6" class="loading">페르소나 데이터 형식이 올바르지 않습니다.</td></tr>';
         return;
     }
     
     if (personas.length === 0) {
-        container.innerHTML = '<div class="loading">페르소나가 없습니다. 기본 페르소나를 초기화하거나 새로 추가하세요.</div>';
+        container.innerHTML = '<tr><td colspan="6" class="loading">페르소나가 없습니다. 기본 페르소나를 초기화하거나 새로 추가하세요.</td></tr>';
         return;
     }
     
     container.innerHTML = personas.map(persona => `
-        <div class="persona-card">
-            <div class="persona-card-header">
-                <div>
-                    <div class="persona-card-title">${escapeHtml(persona.name)}</div>
-                    <div class="persona-card-id">${escapeHtml(persona.id)}</div>
-                </div>
-            </div>
-            ${persona.description ? `<div class="persona-card-description">${escapeHtml(persona.description)}</div>` : ''}
-            <div class="persona-card-keywords">
-                <h4>타입별 특화 키워드</h4>
+        <tr>
+            <td>
+                <span class="persona-id">${escapeHtml(persona.id)}</span>
+            </td>
+            <td>
+                <span class="persona-name">${escapeHtml(persona.name)}</span>
+            </td>
+            <td>
+                <span class="persona-description">${escapeHtml(persona.description || '-')}</span>
+            </td>
+            <td class="keywords-cell">
                 <div class="keywords-list">
                     ${persona.type_specific_keywords.map(kw => `<span class="keyword-tag">${escapeHtml(kw)}</span>`).join('')}
                 </div>
-            </div>
-            <div class="persona-card-keywords">
-                <h4>공통 키워드</h4>
+            </td>
+            <td class="keywords-cell">
                 <div class="keywords-list">
                     ${persona.common_keywords.map(kw => `<span class="keyword-tag common">${escapeHtml(kw)}</span>`).join('')}
                 </div>
-            </div>
-            <div class="persona-card-actions">
-                <button class="btn btn-secondary btn-small" onclick="editPersona('${persona.id}')">수정</button>
-                <button class="btn btn-danger btn-small" onclick="deletePersona('${persona.id}')">삭제</button>
-            </div>
-        </div>
+            </td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn btn-secondary btn-small" onclick="editPersona('${persona.id}')">수정</button>
+                    <button class="btn btn-danger btn-small" onclick="deletePersona('${persona.id}')">삭제</button>
+                </div>
+            </td>
+        </tr>
     `).join('');
 }
 
@@ -323,11 +384,13 @@ async function deletePersona(personaId) {
 
 // 에러 메시지 표시
 function showError(message) {
-    const container = document.querySelector('.admin-content');
+    const activePage = document.querySelector('.content-page.active');
+    if (!activePage) return;
+    
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
-    container.insertBefore(errorDiv, container.firstChild);
+    activePage.insertBefore(errorDiv, activePage.firstChild);
     
     setTimeout(() => {
         errorDiv.remove();
@@ -336,11 +399,13 @@ function showError(message) {
 
 // 성공 메시지 표시
 function showSuccess(message) {
-    const container = document.querySelector('.admin-content');
+    const activePage = document.querySelector('.content-page.active');
+    if (!activePage) return;
+    
     const successDiv = document.createElement('div');
     successDiv.className = 'success-message';
     successDiv.textContent = message;
-    container.insertBefore(successDiv, container.firstChild);
+    activePage.insertBefore(successDiv, activePage.firstChild);
     
     setTimeout(() => {
         successDiv.remove();
