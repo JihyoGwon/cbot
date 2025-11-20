@@ -26,6 +26,10 @@ steps:
 images:
   - 'gcr.io/$PROJECT_ID/$_SERVICE_NAME:$COMMIT_SHA'
 
+# 로깅 옵션 (서비스 계정 사용 시 필수)
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 # 대체 변수 (사용자가 요청한 부분)
 substitutions:
   _SERVICE_NAME: cbot-service # 기본 서비스 이름
