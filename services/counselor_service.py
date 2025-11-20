@@ -3,7 +3,6 @@ import os
 import time
 import logging
 import threading
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -14,7 +13,6 @@ from services.task_selector_service import TaskSelectorService
 from services.supervisor_service import SupervisorService
 from services.session_service import SessionService
 from services.module_service import ModuleService
-from services.session_manager_service import SessionManagerService
 from services.part_manager_service import PartManagerService
 from services.task_completion_checker_service import TaskCompletionCheckerService
 from services.user_state_detector_service import UserStateDetectorService
@@ -74,7 +72,6 @@ class CounselorService:
         self.supervisor = SupervisorService()
         self.session_service = SessionService()
         self.module_service = ModuleService()
-        self.session_manager = SessionManagerService()
         
         # 주기 설정
         self.supervision_interval = Config.SUPERVISION_INTERVAL
@@ -670,95 +667,6 @@ class CounselorService:
         except Exception as e:
             logger.error(f"[PART_TRANSITION ERROR] conversation_id={conversation_id[:8]}... | "
                         f"error={str(e)}")
-    
-    def _extract_part1_info(self, conversation_history: List[Dict]) -> Dict:
-        """Part 1에서 수집한 정보 추출"""
-        # 대화 내용에서 기본 정보 추출
-        user_name = "N/A"
-        counseling_purpose = "N/A"
-        basic_problem = "N/A"
-        
-        # 사용자 메시지에서 정보 추출
-        for msg in conversation_history:
-            if msg.get('role') == 'user':
-                content = msg.get('content', '').lower()
-                
-                # 이름 추출 시도 (간단한 패턴 매칭)
-                if '이름' in content or '저는' in content or '제 이름' in content:
-                    # 이름 패턴 찾기 (한글 이름 2-4자)
-                    name_match = re.search(r'(?:이름|저는|제 이름)[은는이가]?\s*([가-힣]{2,4})', content)
-                    if name_match:
-                        user_name = name_match.group(1)
-                
-                # 상담 목적 추출
-                if '상담' in content or '도움' in content or '문제' in content or '고민' in content:
-                    # 상담 목적 관련 문장 추출
-                    purpose_keywords = ['상담', '도움', '조언', '상담받', '상담하']
-                    for keyword in purpose_keywords:
-                        if keyword in content:
-                            # 해당 문장 추출 (최대 100자)
-                            sentences = re.split(r'[.!?]', content)
-                            for sentence in sentences:
-                                if keyword in sentence:
-                                    counseling_purpose = sentence.strip()[:100]
-                                    break
-                            break
-                
-                # 기본 문제 추출
-                problem_keywords = ['문제', '고민', '힘들', '어려', '스트레스', '불안', '우울', '무기력']
-                for keyword in problem_keywords:
-                    if keyword in content:
-                        # 해당 문장 추출 (최대 150자)
-                        sentences = re.split(r'[.!?]', content)
-                        for sentence in sentences:
-                            if keyword in sentence:
-                                basic_problem = sentence.strip()[:150]
-                                break
-                        break
-        
-        # 대화 요약에서 더 많은 정보 추출 시도
-        if user_name == "N/A" or counseling_purpose == "N/A" or basic_problem == "N/A":
-            # 최근 사용자 메시지들을 합쳐서 요약
-            recent_user_messages = [msg.get('content', '') for msg in conversation_history[-5:] if msg.get('role') == 'user']
-            combined_text = ' '.join(recent_user_messages)
-            
-            if user_name == "N/A" and len(combined_text) > 0:
-                # 이름 패턴 다시 찾기
-                name_patterns = [
-                    r'(?:저는|제 이름은|이름은)\s*([가-힣]{2,4})',
-                    r'([가-힣]{2,4})(?:이라고|입니다|이에요)',
-                ]
-                for pattern in name_patterns:
-                    match = re.search(pattern, combined_text)
-                    if match:
-                        user_name = match.group(1)
-                        break
-            
-            if counseling_purpose == "N/A" and len(combined_text) > 0:
-                # 상담 목적 관련 문장 찾기
-                if '상담' in combined_text or '도움' in combined_text:
-                    # 첫 번째 관련 문장 추출
-                    sentences = re.split(r'[.!?]', combined_text)
-                    for sentence in sentences:
-                        if '상담' in sentence or '도움' in sentence:
-                            counseling_purpose = sentence.strip()[:100]
-                            break
-            
-            if basic_problem == "N/A" and len(combined_text) > 0:
-                # 문제 관련 문장 찾기
-                problem_sentences = []
-                for msg in recent_user_messages:
-                    if any(keyword in msg.lower() for keyword in ['문제', '고민', '힘들', '어려', '스트레스', '불안', '우울', '무기력']):
-                        problem_sentences.append(msg[:150])
-                
-                if problem_sentences:
-                    basic_problem = problem_sentences[0]
-        
-        return {
-            "user_name": user_name,
-            "counseling_purpose": counseling_purpose,
-            "basic_problem": basic_problem
-        }
     
     def _check_part2_task_update_async(self, conversation_id: str, current_tasks: List[Dict],
                                       conversation_history: List[Dict], user_state: Dict) -> None:
