@@ -1,0 +1,48 @@
+[클라우드 연결]
+1. 구글 클라우드 프로젝트 생성
+2. 커서 터미널에 'gcloud auth login' 실행하여 계정 연동
+3. 커서 터미널에 gcloud config set project [YOUR_PROJECT_ID] 실행하여 프로젝트 연결
+
+[vertex ai 활성화]
+1. vertex ai 활성화 https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=프로젝트아이디
+2. https://console.cloud.google.com/iam-admin/serviceaccounts?inv=1&invt=Ab3fsw&project=프로젝트아이디
+ - 계정 추가: (계정명:vertex-ai-chatbot-sa / 롤: vertex ai service account or administrator)
+ - 키 생성: 키 추가 버튼 클릭 후 키 유형: JSON 선택 후 키 생성
+ - json 파일명 변경후 디렉토리에 업로드(키파일명:vertex-ai-chatbot-sa-key.json)
+
+[환경변수 설정 .env]
+1. vertex ai
+GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-chatbot-sa-key.json
+GOOGLE_CLOUD_PROJECT=프로젝트아이디
+VERTEX_AI_LOCATION=us-central1
+
+[firestore 활성화]
+4. https://console.cloud.google.com/apis/library?inv=1&invt=Ab3fsw&project=프로젝트아이디 들어가기
+5. 검색창에 Cloud Firestore API라고 입력하고 활성화
+6. https://console.cloud.google.com/firestore/databases?project=프로젝트아이디 들어가서 데이터베이스 생성
+7. https://console.cloud.google.com/firestore/databases/-default-/rules?inv=1&invt=Ab3f4Q&project=프로젝트아이디 들어가서 enable firebase 클릭
+8. https://console.cloud.google.com/iam-admin/iam?inv=1&invt=Ab3gAg&project=프로젝트아이디
+ - 권한 추가: (계정명:아까 설정한 vertex-ai-chatbot-sa / 롤: firestore service agent, Cloud Datastore User)
+
+ [requirements.txt 설치]
+ pip install -r C:\Users\N-53\dev\qBee\qBee_beta\requirements.txt
+
+---
+run.py 파일 제작 이후
+ [docker 빌드 및 배포]
+ 1. 커서한테 Dockerfile, cloudbuild.yaml 파일 작성해달라고 요청하기
+    - yaml 파일의 "대체 변수(Substitution variables)" 섹션에서 _SERVICE_NAME과 _REGION을 정의해줘야 해.
+        _SERVICE_NAME: Cloud Run 서비스 이름
+        _REGION: asia-northeast3
+    - 로깅 옵션 (서비스 계정 사용 시 필수)
+        options:
+          logging: CLOUD_LOGGING_ONLY
+
+ 2. https://console.cloud.google.com/marketplace/product/google/cloudbuild.googleapis.com?returnUrl=%2Fcloud-build%2Ftriggers%3Fproject%3Dqbeebeta%26invt%3DAb7NEA&project=프로젝트 아이디 들어가서 enable 버튼 클릭
+   https://console.cloud.google.com/apis/library/run.googleapis.com?project=프로젝트아이디 들어가서 enable 버튼 클릭
+ 3. https://console.cloud.google.com/cloud-build/builds?invt=Ab7NEA&project=프로젝트아이디 들어가서 Create trigger 버튼 클릭
+    - 트리거 이름 설정
+    - Repository: gitHub 설정
+    - configuration: cloudbuild.yaml 파일 설정
+ 4. 배포 계정으로 권한 주기
+   - cloud build service account 권한 주기
