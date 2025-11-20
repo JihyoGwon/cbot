@@ -29,6 +29,14 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCommonKeywords();
     });
     
+    // 상담 레벨 저장 버튼 이벤트 리스너 (이벤트 위임 사용)
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'save-levels-btn') {
+            e.preventDefault();
+            saveCounselingLevels();
+        }
+    });
+    
     document.getElementById('close-modal-btn').addEventListener('click', () => {
         closePersonaModal();
     });
@@ -100,7 +108,10 @@ function switchMenu(menu) {
     } else if (menu === 'counseling-levels') {
         pageTitle.textContent = '상담 레벨 관리';
         headerActions.innerHTML = '';
-        loadCounselingLevels();
+        // 상담 레벨 페이지가 활성화될 때 로드
+        setTimeout(() => {
+            loadCounselingLevels();
+        }, 100);
     }
 }
 
@@ -472,8 +483,13 @@ function renderCounselingLevels(levels) {
 
 // 상담 레벨 저장
 async function saveCounselingLevels() {
-    const levels = [];
+    console.log('saveCounselingLevels 호출됨');
     const levelInputs = document.querySelectorAll('.level-input');
+    
+    if (levelInputs.length === 0) {
+        showError('상담 레벨 데이터를 불러오지 못했습니다. 페이지를 새로고침해주세요.');
+        return;
+    }
     
     // 레벨별로 데이터 수집
     const levelData = {};
@@ -489,13 +505,21 @@ async function saveCounselingLevels() {
     });
     
     // 레벨 1~5 모두 있는지 확인
+    const levels = [];
     for (let i = 1; i <= 5; i++) {
         if (!levelData[i]) {
             showError(`레벨 ${i}의 데이터가 없습니다.`);
             return;
         }
+        // 필수 필드 확인
+        if (!levelData[i].stage || !levelData[i].focus_area || !levelData[i].description) {
+            showError(`레벨 ${i}의 모든 필드를 입력해주세요.`);
+            return;
+        }
         levels.push(levelData[i]);
     }
+    
+    console.log('저장할 레벨 데이터:', levels);
     
     try {
         const response = await fetch('/admin/api/counseling-levels', {
@@ -507,14 +531,16 @@ async function saveCounselingLevels() {
         });
         
         const data = await response.json();
+        console.log('API 응답:', data);
         
         if (response.ok) {
             showSuccess('상담 레벨이 저장되었습니다.');
             loadCounselingLevels();
         } else {
-            showError('상담 레벨 저장에 실패했습니다: ' + data.error);
+            showError('상담 레벨 저장에 실패했습니다: ' + (data.error || '알 수 없는 오류'));
         }
     } catch (error) {
+        console.error('저장 오류:', error);
         showError('상담 레벨 저장에 실패했습니다: ' + error.message);
     }
 }
