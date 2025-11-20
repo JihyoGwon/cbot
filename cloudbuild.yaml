@@ -20,6 +20,8 @@ steps:
       - '$_REGION'
       - '--platform'
       - 'managed'
+      - '--set-env-vars'
+      - 'PROJECT_ID=$PROJECT_ID,LOCATION=$_REGION'
       - '--allow-unauthenticated' # 외부 접근 허용 (필요 시 제거)
 
 # 이미지 태그 (빌드 기록용)
