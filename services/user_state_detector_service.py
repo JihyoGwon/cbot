@@ -67,9 +67,14 @@ USER_STATE_SUMMARY: [상태 요약]"""
 
 {conversation_context}
 
-위 대화를 분석하여 사용자의 상태를 감지하세요.
+위 대화를 분석하여 시스템 프롬프트의 감지 기준에 따라 사용자의 상태를 감지하세요.
 
-{self.get_system_prompt()}"""
+다음 형식으로 응답하세요:
+RESISTANCE_DETECTED: [True|False]
+EMOTION_CHANGE: [positive|negative|neutral|None]
+TOPIC_CHANGE: [True|False]
+CIRCULAR_CONVERSATION: [True|False]
+USER_STATE_SUMMARY: [상태 요약]"""
         
         messages = [
             ('system', self.get_system_prompt()),

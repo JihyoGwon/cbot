@@ -83,20 +83,7 @@ class TaskSelectorService:
 현재 Part {current_part}의 사용 가능한 task 목록:
 {tasks_info}
 
-**선택 기준:**
-1. 상태 우선순위: pending > in_progress > sufficient (completed는 제외됨 - 완전 종료)
-   - pending: 아직 시작하지 않은 Task (최우선)
-   - in_progress: 진행 중인 Task (중간 우선순위)
-   - sufficient: 충분히 다뤘지만 필요 시 재선택 가능 (낮은 우선순위)
-   - completed: 완전 종료, 절대 선택하지 않음
-   
-**중요:** pending이나 in_progress Task가 있으면 그것들을 우선 선택하세요. 모든 Task가 sufficient 이상일 때만 Part 전환을 고려합니다.
-
-2. 우선순위: high > medium > low
-3. 현재 대화 맥락과 자연스럽게 연결되는 task
-4. 사용자의 현재 감정 상태와 요구사항 반영
-
-위 task 중에서 현재 상황에 가장 적합한 task를 선택하고, 구체적인 실행 가이드를 제공하세요.
+위 task 중에서 시스템 프롬프트의 선택 기준에 따라 현재 상황에 가장 적합한 task를 선택하고, 구체적인 실행 가이드를 제공하세요.
 
 다음 형식으로 응답하세요:
 SELECTED_TASK_ID: [task_id]

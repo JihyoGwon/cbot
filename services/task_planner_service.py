@@ -442,4 +442,3 @@ JSON 형식으로 업데이트된 task 목록을 반환하세요. 각 task는 �
         except Exception as e:
             print(f"Task 업데이트 오류: {str(e)}")
             return current_tasks
-

@@ -107,9 +107,11 @@ Supervision 피드백:
 사용 가능한 Module 목록:
 {modules_info}
 
-위 Module 중에서 Task 목표와 사용자 상태에 가장 적합한 Module을 선택하세요.
+위 Module 중에서 시스템 프롬프트의 선택 기준에 따라 Task 목표와 사용자 상태에 가장 적합한 Module을 선택하세요.
 
-{self.get_system_prompt()}"""
+다음 형식으로 응답하세요:
+SELECTED_MODULE_ID: [module_id]
+CHANGE_REASON: [변경 이유 또는 None]"""
         
         messages = [
             ('system', self.get_system_prompt()),

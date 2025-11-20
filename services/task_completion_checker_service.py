@@ -96,16 +96,12 @@ Task ID: {current_task.get('id')}
 최근 대화:
 {conversation_context}
 
-**판단 요청:**
-위 정보를 바탕으로 Task가 완료되었는지 **관대하고 실용적인 기준**으로 판단하세요.
+위 정보를 바탕으로 시스템 프롬프트의 판단 기준에 따라 Task가 완료되었는지 판단하세요.
 
-**특별 고려사항:**
-- Task의 핵심 목표(target)가 달성되었는지 확인하세요.
-- completion_criteria는 참고용이지만, 완벽한 달성을 요구하지 마세요.
-- 사용자가 Task와 관련된 정보를 공유하거나 대화에 참여하기 시작했다면 "sufficient"로 판단하세요.
-- 같은 Task가 여러 턴 동안 미완료 상태라면, 진행이 있다면 완료로 판단하세요.
-
-{self.get_system_prompt()}"""
+다음 형식으로 응답하세요:
+IS_COMPLETED: [True|False]
+NEW_STATUS: [sufficient|completed|None]
+COMPLETION_REASON: [완료 이유 또는 None]"""
         
         messages = [
             ('system', self.get_system_prompt()),

@@ -82,13 +82,35 @@ class CounselorService:
         # Thread pool for parallel execution
         self.executor = ThreadPoolExecutor(max_workers=3)
     
+    def _get_base_prompt(self) -> str:
+        """
+        기본 시스템 프롬프트 반환
+        
+        Returns:
+            기본 시스템 프롬프트
+        """
+        return """당신은 전문적인 상담 에이전트 Cbot입니다. 다음 원칙을 따라 상담을 진행하세요:
+
+1. **공감과 경청**: 사용자의 감정과 상황을 깊이 이해하고, 진심으로 공감하세요.
+2. **반말 사용**: 친근하고 편안한 분위기를 위해 반말을 사용하세요.
+3. **질문하기**: 사용자의 문제를 더 잘 이해하기 위해 적절한 질문을 던지세요.
+4. **긍정적 지지**: 사용자의 강점을 인정하고, 긍정적인 변화를 격려하세요.
+5. **단계적 접근**: 복잡한 문제는 작은 단계로 나누어 해결 방안을 제시하세요.
+6. **비판과 판단 금지**: 사용자를 비판하거나 판단하지 말고, 이해와 지지에 집중하세요.
+
+**중요**
+ - 응답은 간결하고 핵심만 전달하세요. 긴 설명보다는 공감과 핵심 조언에 집중하세요. 2-3문장 정도로 짧고 명확하게 답변하세요.
+ - 최종 발화에는 최대 1개 질문이 허용 됩니다. 어떤 질문을 할 것인지 신중하게 고민하세요.
+
+사용자가 상담을 시작할 때는 따뜻하게 환영하고, 편안하게 이야기할 수 있도록 격려하세요."""
+    
     def get_counselor_prompt(self, current_part: int, current_task: Optional[Dict] = None, 
                             execution_guide: str = "", module_guidelines: str = "",
                             recent_supervision: Optional[Dict] = None,
                             module_changed: bool = False,
                             module_change_reason: Optional[str] = None) -> str:
         """
-        메인 상담사 시스템 프롬프트 (최소화)
+        메인 상담사 시스템 프롬프트 (Part별 제약사항 포함)
         
         Args:
             current_part: 현재 Part 번호
@@ -99,7 +121,7 @@ class CounselorService:
             module_changed: Module 변경 여부
             module_change_reason: Module 변경 이유
         """
-        base_prompt = Config.SYSTEM_PROMPT
+        base_prompt = self._get_base_prompt()
         
         # Part 정보
         part_info = f"\n현재 Part {current_part} 진행 중입니다.\n"
@@ -125,6 +147,9 @@ class CounselorService:
             task_info = f"\n현재 Task: {current_task.get('title', '')}\n목표: {current_task.get('target', '')}\n"
             if execution_guide:
                 task_info += f"실행 가이드: {execution_guide}\n"
+            # Task의 restrictions가 있으면 명시적으로 포함
+            if current_task.get('restrictions'):
+                task_info += f"\n⚠️ **중요 제약사항**: {current_task.get('restrictions')}\n"
         
         # Module 가이드라인 (요약만)
         module_info = ""
@@ -793,4 +818,3 @@ class CounselorService:
                 prompt_parts.append(f"[Assistant]\n{content}\n")
         
         return "\n".join(prompt_parts)
-

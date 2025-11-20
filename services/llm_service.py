@@ -36,8 +36,9 @@ class LLMService:
             messages = []
             
             # 시스템 프롬프트 추가 (Gemini는 system 역할을 지원)
-            if Config.SYSTEM_PROMPT:
-                messages.append(('system', Config.SYSTEM_PROMPT))
+            # 기본 상담 프롬프트 사용 (간단한 LLM 서비스용)
+            basic_prompt = """당신은 전문적인 상담 에이전트입니다. 사용자의 감정과 상황을 깊이 이해하고, 진심으로 공감하세요. 반말을 사용하고, 비판하지 말고 이해와 지지에 집중하세요."""
+            messages.append(('system', basic_prompt))
             
             # 대화 기록이 있으면 포함
             if conversation_history:
