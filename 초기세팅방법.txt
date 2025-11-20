@@ -45,4 +45,4 @@ run.py 파일 제작 이후
     - Repository: gitHub 설정
     - configuration: cloudbuild.yaml 파일 설정
  4. 배포 계정으로 권한 주기
-   - cloud build service account 권한 주기
+   - cloud build service account, Cloud Run Admin, Service Account User 권한 주기
