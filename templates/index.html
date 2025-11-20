@@ -13,7 +13,6 @@
             <div class="conversation-info">
                 <span id="conversation-id-display">새 대화</span>
                 <button id="new-conversation-btn" class="btn-secondary">새 대화 시작</button>
-                <button id="toggle-sidebar-btn" class="btn-secondary">📊 정보</button>
             </div>
         </div>
         
@@ -77,15 +76,9 @@
             </div>
             
             <div class="sidebar" id="sidebar">
-                <div class="sidebar-header">
-                    <h3>상담 정보</h3>
-                    <button id="close-sidebar-btn" class="btn-close">×</button>
-                </div>
-                
                 <div class="sidebar-content">
-                    <!-- Part 진행 상태 -->
-                    <div class="info-section">
-                        <h4>📊 Part 진행 상태</h4>
+                    <!-- Part 진행 상태 (고정, 작게) -->
+                    <div class="part-progress-container">
                         <div id="part-progress" class="part-progress">
                             <div class="part-steps">
                                 <div class="part-step" data-part="1">
@@ -106,59 +99,105 @@
                         </div>
                     </div>
                     
-                    <!-- 현재 상태 -->
-                    <div class="info-section">
-                        <h4>📍 현재 상태</h4>
-                        <div id="current-status" class="current-status">
-                            <div class="status-item">
-                                <span class="status-label">Part:</span>
-                                <span id="current-part" class="status-value">-</span>
+                    <!-- Part별 동적 콘텐츠 영역 (스크롤) -->
+                    <div class="sidebar-main-content">
+                        <!-- Part 1 콘텐츠 -->
+                        <div id="part1-content" class="part-content">
+                            <div class="current-task-section">
+                                <h4>현재 작업</h4>
+                                <div id="current-status" class="current-status">
+                                    <div class="status-item">
+                                        <span class="status-label">Task</span>
+                                        <span id="current-task-title" class="status-value">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">Module</span>
+                                        <span id="current-module" class="status-value">-</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="status-item">
-                                <span class="status-label">Task:</span>
-                                <span id="current-task-title" class="status-value">-</span>
+                            
+                            <div class="task-list-section">
+                                <h4>Part 1 Task</h4>
+                                <div id="task-list-part1" class="task-list">
+                                    <p class="no-data">task가 없습니다.</p>
+                                </div>
                             </div>
-                            <div class="status-item">
-                                <span class="status-label">Module:</span>
-                                <span id="current-module" class="status-value">-</span>
+                        </div>
+                        
+                        <!-- Part 2 콘텐츠 -->
+                        <div id="part2-content" class="part-content" style="display: none;">
+                            <div class="part2-goal-section">
+                                <h4>Part 2 목표</h4>
+                                <div id="part2-goal-content" class="part2-goal-content">
+                                    <div class="part2-goal-text" id="part2-goal-text">
+                                        <span class="placeholder-text">목표가 설정되면 표시됩니다.</span>
+                                    </div>
+                                    <div class="part2-keywords" id="part2-keywords" style="display: none;">
+                                        <div class="keywords-label">선택된 키워드</div>
+                                        <div class="keywords-list" id="keywords-list"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="current-task-section">
+                                <h4>현재 작업</h4>
+                                <div id="current-status-part2" class="current-status">
+                                    <div class="status-item">
+                                        <span class="status-label">Task</span>
+                                        <span id="current-task-title-part2" class="status-value">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">Module</span>
+                                        <span id="current-module-part2" class="status-value">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="task-list-section">
+                                <h4>Part 2 Task</h4>
+                                <div id="task-list-part2" class="task-list">
+                                    <p class="no-data">task가 없습니다.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Part 3 콘텐츠 -->
+                        <div id="part3-content" class="part-content" style="display: none;">
+                            <div class="current-task-section">
+                                <h4>현재 작업</h4>
+                                <div id="current-status-part3" class="current-status">
+                                    <div class="status-item">
+                                        <span class="status-label">Task</span>
+                                        <span id="current-task-title-part3" class="status-value">-</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">Module</span>
+                                        <span id="current-module-part3" class="status-value">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="task-list-section">
+                                <h4>Part 3 Task</h4>
+                                <div id="task-list-part3" class="task-list">
+                                    <p class="no-data">task가 없습니다.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Part 2 목표 및 키워드 (Part 2 이상일 때만 표시) -->
-                    <div id="part2-goal-section" class="info-section" style="display: none;">
-                        <h4>🎯 Part 2 목표</h4>
-                        <div id="part2-goal-content" class="part2-goal-content">
-                            <div class="part2-goal-text" id="part2-goal-text">-</div>
-                            <div class="part2-keywords" id="part2-keywords">
-                                <div class="keywords-label">선택된 키워드:</div>
-                                <div class="keywords-list" id="keywords-list">-</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Task 목록 (Part별 구분) -->
-                    <div class="info-section">
-                        <h4>✅ Task 목록</h4>
-                        <div id="task-list" class="task-list">
-                            <p class="no-data">task가 없습니다.</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Supervision 로그 -->
-                    <div class="info-section">
-                        <h4>👁️ Supervision</h4>
-                        <div id="supervision-log" class="supervision-log">
-                            <p class="no-data">아직 supervision이 없습니다.</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Task Completion Checker 로그 -->
-                    <div class="info-section">
-                        <h4>✓ Task 완료 체크</h4>
-                        <div id="completion-log" class="completion-log">
-                            <p class="no-data">아직 완료 체크가 없습니다.</p>
-                        </div>
+                </div>
+            </div>
+            
+            <!-- 완료 체크 로그 패널 (우측) -->
+            <div class="completion-log-panel" id="completion-log-panel">
+                <div class="log-panel-header">
+                    <h4>완료 체크 로그</h4>
+                </div>
+                <div class="log-panel-content">
+                    <div id="completion-log" class="completion-log">
+                        <p class="no-data">아직 완료 체크가 없습니다.</p>
                     </div>
                 </div>
             </div>

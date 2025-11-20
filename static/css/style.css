@@ -51,7 +51,7 @@ body {
 }
 
 .chat-column {
-    flex: 0 0 33.333%; /* 채팅 컬럼 너비를 1/3로 고정 */
+    flex: 0 0 30%; /* 채팅 컬럼 너비를 30%로 조정 */
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border-color);
@@ -64,10 +64,6 @@ body {
     padding: 30px;
     background: var(--bg-light);
     min-width: 0;
-}
-
-.sidebar {
-    flex: 1; /* 사이드바가 나머지 공간 차지 */
 }
 
 .chat-header {
@@ -168,6 +164,7 @@ body {
     border-radius: 16px;
     word-wrap: break-word;
     line-height: 1.5;
+    font-size: 14px; /* goal-text와 동일한 크기 */
 }
 
 .message.user .message-content {
@@ -366,76 +363,209 @@ body {
 
 /* Sidebar */
 .sidebar {
-    flex: 1; /* 사이드바가 나머지 공간 차지 */
+    flex: 1; /* 사이드바가 가운데 공간 차지 */
     background: var(--bg-color);
-    border-left: 2px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    transform: translateX(100%);
+    transform: translateX(0); /* 기본적으로 열려있음 */
     transition: transform 0.3s ease;
     overflow: hidden;
 }
 
-.sidebar.open {
-    transform: translateX(0);
+.sidebar.closed {
+    transform: translateX(100%);
 }
 
-.sidebar-header {
-    padding: 20px;
-    border-bottom: 2px solid var(--border-color);
+/* 완료 체크 로그 패널 (우측) */
+.completion-log-panel {
+    flex: 0 0 380px; /* 고정 너비 증가 (300px -> 380px) */
+    background: var(--bg-color);
+    border-left: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    transform: translateX(0); /* 기본적으로 열려있음 */
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.completion-log-panel.closed {
+    transform: translateX(100%);
+}
+
+.log-panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-light);
     flex-shrink: 0;
 }
 
-.sidebar-header h3 {
-    font-size: 18px;
+.log-panel-header h4 {
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
 }
 
-.btn-close {
-    background: none;
-    border: none;
-    font-size: 28px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
+.log-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-height: 0; /* flexbox에서 스크롤이 제대로 작동하도록 */
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.btn-close:hover {
-    background: var(--bg-light);
-    color: var(--text-primary);
+    flex-direction: column;
 }
 
 .sidebar-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Part 진행 상태 컨테이너 (고정, 작게) */
+.part-progress-container {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.part-progress-container .part-progress {
+    padding: 0;
+}
+
+/* Part별 메인 콘텐츠 영역 (스크롤) */
+.sidebar-main-content {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
 }
 
-.info-section {
+.part-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.part-progress-container {
+    margin-bottom: 20px;
+}
+
+.current-task-section,
+.part2-goal-section,
+.task-list-section {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+}
+
+/* 각 섹션 간 간격 명시적으로 설정 */
+.current-task-section {
     margin-bottom: 24px;
+}
+
+.part2-goal-section {
+    margin-bottom: 24px;
+}
+
+.task-list-section {
+    margin-bottom: 0; /* 마지막 섹션은 margin 없음 */
+}
+
+.current-task-section h4,
+.part2-goal-section h4,
+.task-list-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+
+/* 정보 카드 스타일 */
+.info-card {
+    background: var(--bg-color);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+
+.info-card-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.info-card-header h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.info-section {
+    margin-bottom: 16px;
 }
 
 .info-section:last-child {
     margin-bottom: 0;
 }
 
-.info-section h4 {
-    font-size: 14px;
+/* 접을 수 있는 섹션 */
+.collapsible {
+    background: var(--bg-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.info-section-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.info-section-header:hover {
+    background: var(--bg-light);
+}
+
+.info-section-header h4 {
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.toggle-icon {
+    font-size: 10px;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.info-section-content {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-light);
 }
 
 .no-data {
@@ -453,13 +583,28 @@ body {
 }
 
 .part2-goal-text {
-    background: var(--bg-light);
-    padding: 12px;
-    border-radius: 8px;
-    border-left: 3px solid var(--primary-color);
     font-size: 14px;
     line-height: 1.6;
     color: var(--text-primary);
+}
+
+.part2-goal-text .goal-text {
+    display: block;
+    padding: 12px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary-color);
+}
+
+.part2-goal-text .placeholder-text {
+    display: block;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.info-card.has-content .part2-goal-text .placeholder-text {
+    display: none;
 }
 
 .part2-keywords {
@@ -499,7 +644,7 @@ body {
 
 /* Part Progress */
 .part-progress {
-    padding: 16px 0;
+    padding: 8px 0;
 }
 
 .part-steps {
@@ -519,23 +664,23 @@ body {
 }
 
 .part-step-circle {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--bg-light);
-    border: 3px solid var(--border-color);
+    border: 2px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 16px;
+    font-size: 14px;
     color: var(--text-secondary);
     transition: all 0.3s;
 }
 
 .part-step-label {
-    margin-top: 8px;
-    font-size: 12px;
+    margin-top: 6px;
+    font-size: 11px;
     color: var(--text-secondary);
     font-weight: 500;
 }
@@ -565,10 +710,10 @@ body {
 
 .part-step-connector {
     flex: 1;
-    height: 3px;
+    height: 2px;
     background: var(--border-color);
-    margin: 0 8px;
-    margin-top: -20px;
+    margin: 0 6px;
+    margin-top: -16px;
     transition: all 0.3s;
 }
 
@@ -579,33 +724,42 @@ body {
 
 /* Current Status */
 .current-status {
-    background: var(--bg-light);
-    border-radius: 12px;
-    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .status-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-color);
+    padding: 10px 12px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    transition: background 0.2s;
 }
 
-.status-item:last-child {
-    border-bottom: none;
+.status-item:hover {
+    background: #f0f0f0;
 }
 
 .status-label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .status-value {
     font-size: 14px;
     color: var(--text-primary);
     font-weight: 600;
+}
+
+/* Part Progress in Card */
+.info-card .part-progress {
+    padding: 8px 0;
 }
 
 /* Task List */
@@ -906,11 +1060,11 @@ body {
 
 /* Task Completion Checker 로그 스타일 */
 .completion-log {
-    max-height: 300px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    flex: 1;
+    min-height: 0;
 }
 
 .completion-item {
@@ -951,6 +1105,11 @@ body {
 .completion-status.no {
     background: #fff3e0;
     color: #e65100;
+}
+
+.completion-status.sufficient {
+    background: #fff9c4;
+    color: #f57f17;
 }
 
 .completion-task {

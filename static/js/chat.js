@@ -9,8 +9,6 @@ const sendBtn = document.getElementById('send-btn');
 const newConversationBtn = document.getElementById('new-conversation-btn');
 const conversationIdDisplay = document.getElementById('conversation-id-display');
 const sidebar = document.getElementById('sidebar');
-const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
-const closeSidebarBtn = document.getElementById('close-sidebar-btn');
 
 // 세션 정보 업데이트 인터벌
 let sessionUpdateInterval = null;
@@ -18,6 +16,25 @@ let sessionUpdateInterval = null;
 // 페르소나 선택 관련 변수
 let selectedPersonaType = null;
 let selectedCounselingLevel = null;
+
+// 아코디언 섹션 토글 함수
+function toggleSection(header) {
+    const section = header.parentElement;
+    const content = section.querySelector('.info-section-content');
+    const icon = header.querySelector('.toggle-icon');
+    
+    const isCollapsed = section.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+        section.classList.remove('collapsed');
+        content.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        section.classList.add('collapsed');
+        content.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
 
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,14 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 전송 버튼 클릭
     sendBtn.addEventListener('click', sendMessage);
     
-    // 사이드바 토글
-    toggleSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
-    });
-    
-    closeSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-    });
     
     // Enter 키로 전송 (Shift+Enter는 줄바꿈)
     messageInput.addEventListener('keydown', (e) => {
@@ -452,19 +461,10 @@ async function updateSessionInfo() {
         // Part 진행 상태 표시
         updatePartProgress(session);
         
-        // 현재 상태 표시 (Part, Task, Module)
-        updateCurrentStatus(session);
+        // Part별 콘텐츠 동적 표시
+        updatePartContent(session);
         
-        // Part 2 목표 및 키워드 표시
-        updatePart2Goal(session);
-        
-        // Task 목록 표시 (Part별 구분)
-        updateTaskList(session);
-        
-        // Supervision 로그 표시
-        updateSupervisionLog(session);
-        
-        // Task Completion Checker 로그 표시
+        // Task Completion Checker 로그 표시 (우측 패널)
         updateCompletionLog(session);
         
     } catch (error) {
@@ -496,117 +496,89 @@ function updatePartProgress(session) {
     });
 }
 
-// 현재 상태 업데이트 (Part, Task, Module)
-function updateCurrentStatus(session) {
-    const currentPartEl = document.getElementById('current-part');
-    const currentTaskTitleEl = document.getElementById('current-task-title');
-    const currentModuleEl = document.getElementById('current-module');
-    
+// Part별 콘텐츠 동적 업데이트
+function updatePartContent(session) {
     const currentPart = session.current_part || 1;
     const currentTaskId = session.current_task;
     const currentModuleId = session.current_module;
     const tasks = session.tasks || [];
-    
-    // Part 표시
-    currentPartEl.textContent = `Part ${currentPart}`;
-    
-    // Task 표시
-    const currentTask = tasks.find(t => t.id === currentTaskId);
-    if (currentTask) {
-        currentTaskTitleEl.textContent = currentTask.title || currentTask.id;
-    } else {
-        currentTaskTitleEl.textContent = '-';
-    }
-    
-    // Module 표시
-    if (currentModuleId) {
-        currentModuleEl.textContent = currentModuleId;
-    } else {
-        currentModuleEl.textContent = '-';
-    }
-}
-
-// Part 2 목표 및 키워드 업데이트
-function updatePart2Goal(session) {
-    const part2GoalSection = document.getElementById('part2-goal-section');
-    const part2GoalText = document.getElementById('part2-goal-text');
-    const keywordsList = document.getElementById('keywords-list');
-    
-    const currentPart = session.current_part || 1;
     const part2Goal = session.part2_goal;
     const selectedKeywords = session.part2_selected_keywords || [];
     
-    // Part 2 이상이고 목표가 있을 때만 표시
-    if (currentPart >= 2 && part2Goal) {
-        part2GoalSection.style.display = 'block';
-        part2GoalText.textContent = part2Goal;
+    // 현재 Task 찾기
+    const currentTask = tasks.find(t => t.id === currentTaskId);
+    const currentTaskTitle = currentTask ? (currentTask.title || currentTask.id) : '-';
+    const currentModule = currentModuleId || '-';
+    
+    // Part별 콘텐츠 표시/숨김
+    document.getElementById('part1-content').style.display = currentPart === 1 ? 'block' : 'none';
+    document.getElementById('part2-content').style.display = currentPart === 2 ? 'block' : 'none';
+    document.getElementById('part3-content').style.display = currentPart === 3 ? 'block' : 'none';
+    
+    // Part 1 콘텐츠 업데이트
+    if (currentPart === 1) {
+        document.getElementById('current-task-title').textContent = currentTaskTitle;
+        document.getElementById('current-module').textContent = currentModule;
         
-        if (selectedKeywords.length > 0) {
-            keywordsList.innerHTML = selectedKeywords.map(keyword => 
-                `<span class="keyword-badge">${keyword}</span>`
-            ).join('');
+        const part1Tasks = tasks.filter(t => t.part === 1);
+        const taskListPart1 = document.getElementById('task-list-part1');
+        if (part1Tasks.length > 0) {
+            taskListPart1.innerHTML = part1Tasks.map(task => renderTaskItem(task, currentTaskId)).join('');
         } else {
-            keywordsList.innerHTML = '<span class="no-keywords">키워드 없음</span>';
+            taskListPart1.innerHTML = '<p class="no-data">task가 없습니다.</p>';
         }
-    } else {
-        part2GoalSection.style.display = 'none';
-    }
-}
-
-// Task 목록 업데이트 (Part별 구분)
-function updateTaskList(session) {
-    const taskListEl = document.getElementById('task-list');
-    const tasks = session.tasks || [];
-    const currentTaskId = session.current_task;
-    
-    if (tasks.length === 0) {
-        taskListEl.innerHTML = '<p class="no-data">task가 없습니다.</p>';
-        return;
     }
     
-    // Part별로 Task 분류
-    const tasksByPart = {
-        1: tasks.filter(t => t.part === 1),
-        2: tasks.filter(t => t.part === 2),
-        3: tasks.filter(t => t.part === 3)
-    };
-    
-    let html = '';
-    
-    // Part 1 Task
-    if (tasksByPart[1].length > 0) {
-        html += '<div class="task-group part-1">';
-        html += '<div class="task-group-header">Part 1: 시작</div>';
-        html += tasksByPart[1].map(task => renderTaskItem(task, currentTaskId)).join('');
-        html += '</div>';
+    // Part 2 콘텐츠 업데이트
+    if (currentPart === 2) {
+        // Part 2 목표 업데이트
+        const part2GoalText = document.getElementById('part2-goal-text');
+        const part2Keywords = document.getElementById('part2-keywords');
+        const keywordsList = document.getElementById('keywords-list');
+        
+        if (part2Goal) {
+            part2GoalText.innerHTML = `<span class="goal-text">${part2Goal}</span>`;
+            
+            if (selectedKeywords.length > 0) {
+                keywordsList.innerHTML = selectedKeywords.map(keyword => 
+                    `<span class="keyword-badge">${keyword}</span>`
+                ).join('');
+                part2Keywords.style.display = 'flex';
+            } else {
+                part2Keywords.style.display = 'none';
+            }
+        } else {
+            part2GoalText.innerHTML = '<span class="placeholder-text">목표가 설정되면 표시됩니다.</span>';
+            part2Keywords.style.display = 'none';
+        }
+        
+        // 현재 작업 업데이트
+        document.getElementById('current-task-title-part2').textContent = currentTaskTitle;
+        document.getElementById('current-module-part2').textContent = currentModule;
+        
+        // Part 2 Task 목록 업데이트
+        const part2Tasks = tasks.filter(t => t.part === 2);
+        const taskListPart2 = document.getElementById('task-list-part2');
+        if (part2Tasks.length > 0) {
+            taskListPart2.innerHTML = part2Tasks.map(task => renderTaskItem(task, currentTaskId)).join('');
+        } else {
+            taskListPart2.innerHTML = '<p class="no-data">task가 없습니다.</p>';
+        }
     }
     
-    // Part 2 Task
-    if (tasksByPart[2].length > 0) {
-        html += '<div class="task-group part-2">';
-        html += '<div class="task-group-header">Part 2: 탐색</div>';
-        html += tasksByPart[2].map(task => renderTaskItem(task, currentTaskId)).join('');
-        html += '</div>';
+    // Part 3 콘텐츠 업데이트
+    if (currentPart === 3) {
+        document.getElementById('current-task-title-part3').textContent = currentTaskTitle;
+        document.getElementById('current-module-part3').textContent = currentModule;
+        
+        const part3Tasks = tasks.filter(t => t.part === 3);
+        const taskListPart3 = document.getElementById('task-list-part3');
+        if (part3Tasks.length > 0) {
+            taskListPart3.innerHTML = part3Tasks.map(task => renderTaskItem(task, currentTaskId)).join('');
+        } else {
+            taskListPart3.innerHTML = '<p class="no-data">task가 없습니다.</p>';
+        }
     }
-    
-    // Part 3 Task
-    if (tasksByPart[3].length > 0) {
-        html += '<div class="task-group part-3">';
-        html += '<div class="task-group-header">Part 3: 마무리</div>';
-        html += tasksByPart[3].map(task => renderTaskItem(task, currentTaskId)).join('');
-        html += '</div>';
-    }
-    
-    // Part 정보가 없는 Task (기존 데이터 호환성)
-    const tasksWithoutPart = tasks.filter(t => !t.part || ![1, 2, 3].includes(t.part));
-    if (tasksWithoutPart.length > 0) {
-        html += '<div class="task-group">';
-        html += '<div class="task-group-header">기타</div>';
-        html += tasksWithoutPart.map(task => renderTaskItem(task, currentTaskId)).join('');
-        html += '</div>';
-    }
-    
-    taskListEl.innerHTML = html || '<p class="no-data">task가 없습니다.</p>';
 }
 
 // Task 아이템 렌더링 헬퍼 함수
@@ -703,36 +675,41 @@ function updateCompletionLog(session) {
     const recentLogs = completionLog.slice(-5).reverse();
     
     completionLogEl.innerHTML = recentLogs.map(log => {
-        const isCompleted = log.is_completed || false;
-        const newStatus = log.new_status || 'None';
+        const newStatus = log.new_status || null;
         const completionReason = log.completion_reason || '';
         const taskId = log.task_id || 'N/A';
-        const rawOutput = log.raw_output || '';
+        
+        // new_status가 있으면 완료된 것으로 간주 (sufficient 또는 completed)
+        const isCompleted = newStatus !== null && newStatus !== 'None';
         
         // 현재 Task 목록에서 Task 제목 찾기
         const tasks = session.tasks || [];
         const task = tasks.find(t => t.id === taskId);
         const taskTitle = task ? task.title : taskId;
         
+        // 상태 표시 텍스트 결정
+        let statusText = '✗ 미완료';
+        let statusClass = 'no';
+        if (isCompleted) {
+            if (newStatus === 'completed') {
+                statusText = '✓ 완료';
+                statusClass = 'yes';
+            } else if (newStatus === 'sufficient') {
+                statusText = '○ 충분';
+                statusClass = 'sufficient';
+            }
+        }
+        
         return `
             <div class="completion-item ${isCompleted ? 'completed' : 'not-completed'}">
                 <div class="completion-header">
-                    <span class="completion-status ${isCompleted ? 'yes' : 'no'}">
-                        ${isCompleted ? '✓ 완료' : '✗ 미완료'}
+                    <span class="completion-status ${statusClass}">
+                        ${statusText}
                     </span>
                     <span class="completion-task">${taskTitle}</span>
                 </div>
-                ${newStatus && newStatus !== 'None' ? `
-                    <div class="completion-status-info">새 상태: <strong>${newStatus}</strong></div>
-                ` : ''}
                 ${completionReason ? `
                     <div class="completion-reason">${completionReason}</div>
-                ` : ''}
-                ${rawOutput ? `
-                    <details class="completion-raw">
-                        <summary>원본 출력 보기</summary>
-                        <pre class="completion-raw-text">${rawOutput}</pre>
-                    </details>
                 ` : ''}
             </div>
         `;
