@@ -95,21 +95,3 @@ class PartManagerService:
             "updated_at": datetime.now()
         })
     
-    def get_part_tasks(self, conversation_id: str, part_number: int) -> List[Dict]:
-        """
-        특정 Part의 Task 목록 가져오기
-        
-        Args:
-            conversation_id: 대화 ID
-            part_number: Part 번호
-            
-        Returns:
-            해당 Part의 Task 목록
-        """
-        session = self.session_service.get_session(conversation_id)
-        if not session:
-            return []
-        
-        tasks = session.get('tasks', [])
-        return [t for t in tasks if t.get('part') == part_number]
-
