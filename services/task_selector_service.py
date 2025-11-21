@@ -27,7 +27,7 @@ class TaskSelectorService:
     
     def get_system_prompt(self) -> str:
         """Task Selector 시스템 프롬프트"""
-        return """당신은 상담 진행 관리자입니다. 현재 Part 내에서 다음에 실행할 task를 선택하세요.
+        return """당신은 상담 진행 관리자입니다. 현재 Part 내에서 다음에 실행할 task를 선택하고, 선택한 task에 대한 구체적인 실행 가이드를 제공하는 역할을 합니다.
 
 **선택 기준:**
 1. 현재 Part 내의 Task만 선택
@@ -36,7 +36,14 @@ class TaskSelectorService:
 4. 현재 대화 맥락과 자연스럽게 연결되는 task
 5. 사용자의 현재 감정 상태와 요구사항 반영
 
-선택한 task를 바탕으로 구체적인 실행 가이드를 제공하세요. (Module은 나중에 선택됩니다)"""
+**실행 가이드 제공:**
+1. 선택한 task를 바탕으로 구체적인 실행 가이드를 제공하세요. (Module은 나중에 선택됩니다)
+2. **주의**: 앞의 대화에서 이미 다룬 내용을 가이드로 제공하는 것을 최대한 피해야 합니다.
+
+**응답 형식:**
+다음 형식으로 응답하세요:
+SELECTED_TASK_ID: [task_id]
+EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질문을, 어떤 순서로 진행할지]"""
     
     def select_next_task(self, conversation_history: List[Dict], 
                         available_tasks: List[Dict], current_part: int) -> Optional[Dict]:
@@ -65,7 +72,8 @@ class TaskSelectorService:
         
         try:
             # 최근 대화 요약
-            recent_messages = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
+            # recent_messages = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
+            recent_messages = conversation_history
             conversation_context = "\n".join([
                 f"{msg.get('role')}: {msg.get('content', '')[:150]}"
                 for msg in recent_messages
@@ -83,11 +91,7 @@ class TaskSelectorService:
 현재 Part {current_part}의 사용 가능한 task 목록:
 {tasks_info}
 
-위 task 중에서 시스템 프롬프트의 선택 기준에 따라 현재 상황에 가장 적합한 task를 선택하고, 구체적인 실행 가이드를 제공하세요.
-
-다음 형식으로 응답하세요:
-SELECTED_TASK_ID: [task_id]
-EXECUTION_GUIDE: [구체적인 실행 가이드 - 어떤 말투로, 어떤 질문을, 어떤 순서로 진행할지]"""
+위 task 중에서 시스템 프롬프트의 선택 기준에 따라 현재 상황에 가장 적합한 task를 선택하고, 선택한 task에 맞춰 현재 대화 맥락을 반영한 구체적인 실행 가이드를 생성하세요."""
 
             messages = [
                 ('system', self.get_system_prompt()),
