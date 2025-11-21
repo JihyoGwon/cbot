@@ -708,13 +708,33 @@ class CounselorService:
                 
                 # Part 3 Task 생성
                 elif next_part == 3:
+                    # 최신 세션 정보 가져오기
+                    session = self.session_service.get_session(conversation_id)
+                    if not session:
+                        logger.warning(f"[PART_TRANSITION_ASYNC] 세션을 찾을 수 없음")
+                        return
+                    
+                    # 최신 tasks 가져오기 (세션에서)
+                    latest_tasks = session.get('tasks', tasks)
                     part3_tasks = self.task_planner.create_part3_tasks()
-                    current_tasks = tasks + part3_tasks
-                    self.session_service.update_tasks(conversation_id, current_tasks)
+                    current_tasks = latest_tasks + part3_tasks
+                    
+                    # Firestore에 저장 (current_part와 tasks 함께 업데이트)
+                    session_ref = self.session_service.firestore.db.collection("sessions").document(conversation_id)
+                    session_ref.update({
+                        "current_part": next_part,
+                        "tasks": current_tasks,
+                        "updated_at": datetime.now()
+                    })
+                    
+                    logger.info(f"[PART_TRANSITION_ASYNC] Part 3 Task 생성: {len(part3_tasks)}개 Task 생성됨")
+                    logger.info(f"[PART_TRANSITION_ASYNC] Firestore 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
+                    
                     # 캐시 업데이트
                     if conversation_id in self.session_cache:
                         self.session_cache[conversation_id]['tasks'] = current_tasks
                         self.session_cache[conversation_id]['current_part'] = 3
+                        logger.info(f"[PART_TRANSITION_ASYNC] 캐시 업데이트 완료: current_part={next_part}, tasks_count={len(current_tasks)}")
                     
                     # Part 3의 첫 번째 Task 선택
                     part3_pending = [t for t in part3_tasks if t.get('status') == 'pending']

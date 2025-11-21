@@ -27,7 +27,9 @@ class TaskCompletionCheckerService:
 
 **Task 상태 정의:**
 - `sufficient`: 충분히 다뤘고, 완벽하지 않아도 다음 단계로 진행 가능한 상태
-- `completed`: 완전히 완료되었고, 더 이상 다룰 필요가 없는 상태
+- `completed`: 
+    - 완전히 완료되었고, 더 이상 다룰 필요가 없는 상태
+    - 사용자의 강한 저항이 발생했을 때
 - `None`: 아직 완료되지 않음
 
 **1. "completed" 판단 기준 (완전 완료):**
@@ -41,6 +43,11 @@ class TaskCompletionCheckerService:
   * Task의 핵심 목표(target)가 완전히 달성되었고
   * completion_criteria의 모든 요구사항이 충족되었으며
   * 사용자가 명시적으로 확인하거나 동의한 경우
+
+- 사용자의 강한 저항:
+  * 사용자가 Task에 대해 명확한 거부, 회피, 또는 강한 저항을 보일 때
+  * 예: "이건 하고 싶지 않아", "이 주제는 피하고 싶어", "더 이상 얘기하고 싶지 않아" 등
+  * 이 경우 Task를 강제로 진행하는 것보다 완료 처리하고 다음 단계로 넘어가는 것이 적절함
 
 **2. "sufficient" 판단 기준 (충분히 다뤘음):**
 다음 조건 중 하나라도 충족되면 `sufficient`로 판단:

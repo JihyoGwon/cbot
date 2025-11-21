@@ -29,7 +29,7 @@ class TaskSelectorService:
         """Task Selector 시스템 프롬프트"""
         return """당신은 상담 진행 관리자입니다. 현재 Part 내에서 다음에 실행할 task를 선택하고, 선택한 task에 대한 구체적인 실행 가이드를 제공하는 역할을 합니다.
 
-**선택 기준:**
+**선택 기준(일반):**
 1. 현재 Part 내의 Task만 선택
 2. 상태 우선순위: pending > in_progress > sufficient
 3. 우선순위: high > medium > low
