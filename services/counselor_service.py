@@ -288,65 +288,64 @@ class CounselorService:
                 session['tasks'] = current_tasks
                 self.session_cache[conversation_id] = session
             
-            # Task Selector 실행 (Task 완료 시에만)
+            # Task Selector 실행 (매턴마다)
             task_selection = None
             task_selector_output = None
-            if task_completed:
-                t0 = time.time()
-                # 현재 Part의 Task만 선택
-                part_tasks = [t for t in current_tasks if t.get('part') == current_part]
-                task_selection = self.task_selector.select_next_task(
-                    conversation_history,
-                    part_tasks,
-                    current_part
-                )
-                if task_selection:
-                    task_selector_output = task_selection.get('raw_output', '')
-                timing_log['task_select'] = time.time() - t0
+            t0 = time.time()
+            # 현재 Part의 Task만 선택
+            part_tasks = [t for t in current_tasks if t.get('part') == current_part]
+            task_selection = self.task_selector.select_next_task(
+                conversation_history,
+                part_tasks,
+                current_part
+            )
+            if task_selection:
+                task_selector_output = task_selection.get('raw_output', '')
+            timing_log['task_select'] = time.time() - t0
+            
+            if task_selection:
+                selected_task = task_selection['task']
+                selected_task_status = selected_task.get('status')
                 
-                if task_selection:
-                    selected_task = task_selection['task']
-                    selected_task_status = selected_task.get('status')
-                    
-                    # 선택된 Task를 current_task로 설정
-                    self.session_service.set_current_task(conversation_id, selected_task.get('id'))
-                    
-                    # sufficient 상태가 아닐 때만 in_progress로 변경
-                    if selected_task_status != 'sufficient':
-                        self.session_service.update_task_status(conversation_id, selected_task.get('id'), 'in_progress')
-                        # 캐시 업데이트
-                        for task in current_tasks:
-                            if task.get('id') == selected_task.get('id'):
-                                task['status'] = 'in_progress'
-                                break
-                    else:
-                        # sufficient 상태는 그대로 유지
-                        # 캐시만 업데이트
-                        for task in current_tasks:
-                            if task.get('id') == selected_task.get('id'):
-                                # 이미 sufficient 상태이므로 변경하지 않음
-                                break
-                    
-                    current_task = selected_task
-                    current_task_id = selected_task.get('id')
-                    session['current_task'] = selected_task.get('id')
-                    session['tasks'] = current_tasks
-                    self.session_cache[conversation_id] = session
+                # 선택된 Task를 current_task로 설정
+                self.session_service.set_current_task(conversation_id, selected_task.get('id'))
+                
+                # sufficient 상태가 아닐 때만 in_progress로 변경
+                if selected_task_status != 'sufficient':
+                    self.session_service.update_task_status(conversation_id, selected_task.get('id'), 'in_progress')
+                    # 캐시 업데이트
+                    for task in current_tasks:
+                        if task.get('id') == selected_task.get('id'):
+                            task['status'] = 'in_progress'
+                            break
                 else:
-                    # Task를 선택하지 못했다면 Part 전환 체크
-                    # 단, 정말로 모든 Task가 sufficient 이상인지 확인
-                    part_tasks_for_check = [t for t in current_tasks if t.get('part') == current_part]
-                    all_sufficient_or_completed = all(
-                        t.get('status') in ['sufficient', 'completed'] 
-                        for t in part_tasks_for_check
-                    )
-                    
-                    if all_sufficient_or_completed:
-                        # 모든 Task가 sufficient 이상이면 Part 전환 체크
-                        next_part = self.part_manager.check_part_transition(conversation_id)
-                    else:
-                        # 아직 pending이나 in_progress Task가 있으면 Part 전환하지 않음
-                        next_part = None
+                    # sufficient 상태는 그대로 유지
+                    # 캐시만 업데이트
+                    for task in current_tasks:
+                        if task.get('id') == selected_task.get('id'):
+                            # 이미 sufficient 상태이므로 변경하지 않음
+                            break
+                
+                current_task = selected_task
+                current_task_id = selected_task.get('id')
+                session['current_task'] = selected_task.get('id')
+                session['tasks'] = current_tasks
+                self.session_cache[conversation_id] = session
+            else:
+                # Task를 선택하지 못했다면 Part 전환 체크
+                # 단, 정말로 모든 Task가 sufficient 이상인지 확인
+                part_tasks_for_check = [t for t in current_tasks if t.get('part') == current_part]
+                all_sufficient_or_completed = all(
+                    t.get('status') in ['sufficient', 'completed'] 
+                    for t in part_tasks_for_check
+                )
+                
+                if all_sufficient_or_completed:
+                    # 모든 Task가 sufficient 이상이면 Part 전환 체크
+                    next_part = self.part_manager.check_part_transition(conversation_id)
+                else:
+                    # 아직 pending이나 in_progress Task가 있으면 Part 전환하지 않음
+                    next_part = None
                     
                     if next_part:
                         # 이전 Part의 sufficient Task들을 completed로 변경
