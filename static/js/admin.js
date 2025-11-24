@@ -57,6 +57,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Module 모달 이벤트 리스너
+    document.getElementById('close-module-modal-btn').addEventListener('click', () => {
+        closeModuleModal();
+    });
+    
+    document.getElementById('cancel-module-btn').addEventListener('click', () => {
+        closeModuleModal();
+    });
+    
+    document.getElementById('module-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveModule();
+    });
+    
+    document.getElementById('module-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'module-modal') {
+            closeModuleModal();
+        }
+    });
+    
     // 기본 메뉴 설정
     switchMenu('personas');
 });
@@ -111,6 +131,19 @@ function switchMenu(menu) {
         // 상담 레벨 페이지가 활성화될 때 로드
         setTimeout(() => {
             loadCounselingLevels();
+        }, 100);
+    } else if (menu === 'modules') {
+        pageTitle.textContent = 'Module 관리';
+        headerActions.innerHTML = `
+            <button id="add-module-btn" class="btn-primary">+ 새 Module 추가</button>
+        `;
+        // 버튼 이벤트 리스너 재등록
+        document.getElementById('add-module-btn').addEventListener('click', () => {
+            openModuleModal();
+        });
+        // Module 목록 로드
+        setTimeout(() => {
+            loadModules();
         }, 100);
     }
 }
@@ -550,5 +583,213 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Module 관리 함수들
+let editingModuleId = null;
+
+// Module 목록 로드
+async function loadModules() {
+    try {
+        const response = await fetch('/admin/api/modules');
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (data.modules && Array.isArray(data.modules)) {
+                renderModules(data.modules);
+            } else {
+                console.error('Invalid modules data:', data);
+                showError('Module 데이터 형식이 올바르지 않습니다.');
+                document.getElementById('modules-list').innerHTML = '<tr><td colspan="6" class="loading">데이터 형식 오류</td></tr>';
+            }
+        } else {
+            showError('Module 목록을 불러오는데 실패했습니다: ' + (data.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        console.error('Error loading modules:', error);
+        showError('Module 목록을 불러오는데 실패했습니다: ' + error.message);
+    }
+}
+
+// Module 목록 렌더링
+function renderModules(modules) {
+    const container = document.getElementById('modules-list');
+    
+    if (!Array.isArray(modules) || modules.length === 0) {
+        container.innerHTML = '<tr><td colspan="6" class="loading">Module이 없습니다. 새로 추가하세요.</td></tr>';
+        return;
+    }
+    
+    container.innerHTML = modules.map(module => `
+        <tr>
+            <td>
+                <span class="module-id">${escapeHtml(module.id)}</span>
+            </td>
+            <td>
+                <span class="module-name">${escapeHtml(module.name)}</span>
+            </td>
+            <td>
+                <span class="module-description">${escapeHtml(module.description || '-')}</span>
+            </td>
+            <td>
+                <div class="guidelines-preview">
+                    ${module.guidelines && module.guidelines.length > 0 
+                        ? module.guidelines.slice(0, 2).map(g => `<div>• ${escapeHtml(g)}</div>`).join('') 
+                        + (module.guidelines.length > 2 ? `<div class="more-indicator">+${module.guidelines.length - 2}개 더</div>` : '')
+                        : '-'}
+                </div>
+            </td>
+            <td>
+                <div class="applicable-tags">
+                    ${(module.applicable_to || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+            </td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn btn-secondary btn-small" onclick="editModule('${module.id}')">수정</button>
+                    <button class="btn btn-danger btn-small" onclick="deleteModule('${module.id}')">삭제</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Module 모달 열기
+function openModuleModal(moduleId = null) {
+    editingModuleId = moduleId;
+    const modal = document.getElementById('module-modal');
+    const form = document.getElementById('module-form');
+    const title = document.getElementById('module-modal-title');
+    
+    if (moduleId) {
+        title.textContent = 'Module 수정';
+        loadModuleForEdit(moduleId);
+    } else {
+        title.textContent = '새 Module 추가';
+        form.reset();
+        document.getElementById('module-id').disabled = false;
+        document.getElementById('module-applicable-to').value = 'all_sessions';
+    }
+    
+    modal.classList.add('show');
+}
+
+// Module 모달 닫기
+function closeModuleModal() {
+    const modal = document.getElementById('module-modal');
+    modal.classList.remove('show');
+    editingModuleId = null;
+    document.getElementById('module-form').reset();
+}
+
+// Module 수정을 위해 로드
+async function loadModuleForEdit(moduleId) {
+    try {
+        const response = await fetch(`/admin/api/modules/${moduleId}`);
+        const module = await response.json();
+        
+        if (response.ok) {
+            document.getElementById('module-id').value = module.id;
+            document.getElementById('module-id').disabled = true;
+            document.getElementById('module-name').value = module.name || '';
+            document.getElementById('module-description').value = module.description || '';
+            document.getElementById('module-guidelines').value = (module.guidelines || []).join('\n');
+            document.getElementById('module-applicable-to').value = (module.applicable_to || []).join(', ');
+        } else {
+            showError('Module을 불러오는데 실패했습니다: ' + module.error);
+        }
+    } catch (error) {
+        showError('Module을 불러오는데 실패했습니다: ' + error.message);
+    }
+}
+
+// Module 저장
+async function saveModule() {
+    const guidelinesText = document.getElementById('module-guidelines').value.trim();
+    const guidelines = guidelinesText ? guidelinesText.split('\n').filter(g => g.trim()) : [];
+    
+    const applicableToText = document.getElementById('module-applicable-to').value.trim();
+    const applicableTo = applicableToText ? applicableToText.split(',').map(t => t.trim()).filter(t => t) : [];
+    
+    const formData = {
+        id: document.getElementById('module-id').value.trim(),
+        name: document.getElementById('module-name').value.trim(),
+        description: document.getElementById('module-description').value.trim(),
+        guidelines: guidelines,
+        applicable_to: applicableTo
+    };
+    
+    // 유효성 검사
+    if (!formData.id || !formData.name) {
+        showError('Module ID와 이름은 필수입니다.');
+        return;
+    }
+    
+    if (formData.guidelines.length === 0) {
+        showError('최소 하나의 가이드라인을 입력해주세요.');
+        return;
+    }
+    
+    if (formData.applicable_to.length === 0) {
+        showError('적용 가능 세션을 입력해주세요.');
+        return;
+    }
+    
+    try {
+        const url = editingModuleId 
+            ? `/admin/api/modules/${editingModuleId}`
+            : '/admin/api/modules';
+        
+        const method = editingModuleId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showSuccess(editingModuleId ? 'Module이 수정되었습니다.' : 'Module이 생성되었습니다.');
+            closeModuleModal();
+            loadModules();
+        } else {
+            showError('Module 저장에 실패했습니다: ' + data.error);
+        }
+    } catch (error) {
+        showError('Module 저장에 실패했습니다: ' + error.message);
+    }
+}
+
+// Module 수정
+function editModule(moduleId) {
+    openModuleModal(moduleId);
+}
+
+// Module 삭제
+async function deleteModule(moduleId) {
+    if (!confirm('이 Module을 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/api/modules/${moduleId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showSuccess('Module이 삭제되었습니다.');
+            loadModules();
+        } else {
+            showError('Module 삭제에 실패했습니다: ' + data.error);
+        }
+    } catch (error) {
+        showError('Module 삭제에 실패했습니다: ' + error.message);
+    }
 }
 

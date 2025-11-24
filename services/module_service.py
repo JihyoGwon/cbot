@@ -1,5 +1,7 @@
 """Module 서비스 - 재사용 가능한 상담 도구/기법"""
 from typing import List, Dict, Optional
+from datetime import datetime
+from services.firestore_service import FirestoreService
 
 
 class ModuleService:
@@ -7,11 +9,20 @@ class ModuleService:
     
     def __init__(self):
         """Module 서비스 초기화"""
-        self.modules = self._initialize_modules()
+        self.firestore = FirestoreService()
+        self.collection_name = "modules"
+        # 초기 모듈이 없으면 기본 모듈 생성
+        self._initialize_default_modules()
     
-    def _initialize_modules(self) -> List[Dict]:
-        """초기 Module 목록 생성"""
-        return [
+    def _initialize_default_modules(self) -> None:
+        """기본 Module이 없으면 초기화"""
+        # Firestore에 기본 모듈이 있는지 확인
+        modules_ref = self.firestore.db.collection(self.collection_name)
+        existing_modules = list(modules_ref.stream())
+        
+        if len(existing_modules) == 0:
+            # 기본 모듈 생성
+            default_modules = [
             {
                 "id": "rapport_building",
                 "name": "관계 형성",
@@ -84,20 +95,55 @@ class ModuleService:
                 ],
                 "applicable_to": ["all_sessions"]
             }
-        ]
+            ]
+            
+            # Firestore에 저장
+            for module in default_modules:
+                module_doc = {
+                    **module,
+                    "created_at": datetime.now(),
+                    "updated_at": datetime.now()
+                }
+                module_ref = self.firestore.db.collection(self.collection_name).document(module['id'])
+                module_ref.set(module_doc)
     
     def get_module(self, module_id: str) -> Optional[Dict]:
         """Module 가져오기"""
-        return next((m for m in self.modules if m.get('id') == module_id), None)
+        module_ref = self.firestore.db.collection(self.collection_name).document(module_id)
+        module_doc = module_ref.get()
+        
+        if module_doc.exists:
+            data = module_doc.to_dict()
+            # datetime 객체 제거 (JSON 직렬화를 위해)
+            if 'created_at' in data and isinstance(data['created_at'], datetime):
+                data['created_at'] = data['created_at'].isoformat()
+            if 'updated_at' in data and isinstance(data['updated_at'], datetime):
+                data['updated_at'] = data['updated_at'].isoformat()
+            return data
+        return None
     
     def get_all_modules(self) -> List[Dict]:
         """모든 Module 목록 가져오기"""
-        return self.modules
+        modules_ref = self.firestore.db.collection(self.collection_name)
+        modules_docs = modules_ref.stream()
+        
+        modules = []
+        for doc in modules_docs:
+            data = doc.to_dict()
+            # datetime 객체 제거 (JSON 직렬화를 위해)
+            if 'created_at' in data and isinstance(data['created_at'], datetime):
+                data['created_at'] = data['created_at'].isoformat()
+            if 'updated_at' in data and isinstance(data['updated_at'], datetime):
+                data['updated_at'] = data['updated_at'].isoformat()
+            modules.append(data)
+        
+        return modules
     
     def get_modules_by_session_type(self, session_type: str) -> List[Dict]:
         """세션 타입에 맞는 Module 목록 가져오기"""
+        all_modules = self.get_all_modules()
         return [
-            m for m in self.modules 
+            m for m in all_modules 
             if session_type in m.get('applicable_to', []) or 'all_sessions' in m.get('applicable_to', [])
         ]
     
@@ -109,4 +155,75 @@ class ModuleService:
         
         guidelines = module.get('guidelines', [])
         return "\n".join([f"- {g}" for g in guidelines])
+    
+    def create_module(self, module_data: Dict) -> Dict:
+        """새 Module 생성"""
+        module_id = module_data.get('id')
+        if not module_id:
+            raise ValueError('Module ID가 필요합니다.')
+        
+        # 중복 확인
+        if self.get_module(module_id):
+            raise ValueError(f'Module ID "{module_id}"가 이미 존재합니다.')
+        
+        # Module 데이터 준비
+        module_doc = {
+            'id': module_id,
+            'name': module_data.get('name', ''),
+            'description': module_data.get('description', ''),
+            'guidelines': module_data.get('guidelines', []),
+            'applicable_to': module_data.get('applicable_to', ['all_sessions']),
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        # Firestore에 저장
+        module_ref = self.firestore.db.collection(self.collection_name).document(module_id)
+        module_ref.set(module_doc)
+        
+        # datetime을 문자열로 변환하여 반환
+        module_doc['created_at'] = module_doc['created_at'].isoformat()
+        module_doc['updated_at'] = module_doc['updated_at'].isoformat()
+        
+        return module_doc
+    
+    def update_module(self, module_id: str, module_data: Dict) -> Dict:
+        """Module 수정"""
+        module_ref = self.firestore.db.collection(self.collection_name).document(module_id)
+        module_doc = module_ref.get()
+        
+        if not module_doc.exists:
+            raise ValueError(f'Module ID "{module_id}"를 찾을 수 없습니다.')
+        
+        # 업데이트할 데이터 준비
+        update_data = {
+            'updated_at': datetime.now()
+        }
+        
+        if 'name' in module_data:
+            update_data['name'] = module_data['name']
+        if 'description' in module_data:
+            update_data['description'] = module_data['description']
+        if 'guidelines' in module_data:
+            update_data['guidelines'] = module_data['guidelines']
+        if 'applicable_to' in module_data:
+            update_data['applicable_to'] = module_data['applicable_to']
+        
+        # Firestore 업데이트
+        module_ref.update(update_data)
+        
+        # 업데이트된 데이터 가져오기
+        updated_module = self.get_module(module_id)
+        return updated_module
+    
+    def delete_module(self, module_id: str) -> None:
+        """Module 삭제"""
+        module_ref = self.firestore.db.collection(self.collection_name).document(module_id)
+        module_doc = module_ref.get()
+        
+        if not module_doc.exists:
+            raise ValueError(f'Module ID "{module_id}"를 찾을 수 없습니다.')
+        
+        # Firestore에서 삭제
+        module_ref.delete()
 

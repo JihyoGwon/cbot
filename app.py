@@ -21,6 +21,8 @@ Session(app)
 counselor_service = CounselorService()
 firestore_service = FirestoreService()
 persona_service = PersonaService()
+from services.module_service import ModuleService
+module_service = ModuleService()
 
 
 @app.route('/')
@@ -492,6 +494,99 @@ def update_counseling_levels():
         return jsonify({
             'message': '상담 레벨이 업데이트되었습니다.',
             'levels': updated_levels
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+# ==================== Module API ====================
+
+@app.route('/admin/api/modules', methods=['GET'])
+def list_modules():
+    """모든 Module 목록 가져오기"""
+    try:
+        modules = module_service.get_all_modules()
+        return jsonify({
+            'modules': modules,
+            'count': len(modules)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/modules', methods=['POST'])
+def create_module():
+    """새 Module 생성"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('id'):
+            return jsonify({'error': 'Module ID가 필요합니다.'}), 400
+        
+        module = module_service.create_module(data)
+        
+        return jsonify({
+            'message': 'Module이 생성되었습니다.',
+            'module': module
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/modules/<module_id>', methods=['GET'])
+def get_module(module_id):
+    """Module 가져오기"""
+    try:
+        module = module_service.get_module(module_id)
+        
+        if not module:
+            return jsonify({'error': 'Module을 찾을 수 없습니다.'}), 404
+        
+        return jsonify(module), 200
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/modules/<module_id>', methods=['PUT'])
+def update_module(module_id):
+    """Module 수정"""
+    try:
+        data = request.get_json()
+        
+        module = module_service.update_module(module_id, data)
+        
+        return jsonify({
+            'message': 'Module이 수정되었습니다.',
+            'module': module
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/admin/api/modules/<module_id>', methods=['DELETE'])
+def delete_module(module_id):
+    """Module 삭제"""
+    try:
+        module_service.delete_module(module_id)
+        
+        return jsonify({
+            'message': 'Module이 삭제되었습니다.'
         }), 200
         
     except ValueError as e:
