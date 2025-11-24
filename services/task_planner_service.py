@@ -317,6 +317,11 @@ JSON 형식으로 반환하세요:
 2. 기존 Task 수정 (필요 시)
 3. 불필요한 Task 제거 (필요 시)
 
+**중요: 기존 Task의 상태(status)를 보존하세요.**
+- 기존 Task ID를 유지하는 경우, 해당 Task의 status(sufficient, completed 등)를 그대로 유지하세요.
+- 새로운 Task만 status: "pending"으로 설정하세요.
+- 기존 Task의 status가 "sufficient" 또는 "completed"인 경우, 이를 반드시 보존하세요.
+
 JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 7개를 유지하세요."""
         
         messages = [
@@ -333,10 +338,30 @@ JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 
             json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
             if json_match:
                 updated_part2_tasks = json.loads(json_match.group())
-                # part 필드 확인
-                for task in updated_part2_tasks:
-                    if 'part' not in task:
-                        task['part'] = 2
+                
+                # 기존 Task 상태 보존 로직
+                # 기존 Part 2 Task를 ID로 매핑
+                existing_task_map = {task.get('id'): task for task in part2_tasks}
+                
+                # 업데이트된 Task에 기존 상태 보존
+                for updated_task in updated_part2_tasks:
+                    task_id = updated_task.get('id')
+                    if task_id in existing_task_map:
+                        # 기존 Task가 있으면 상태 보존
+                        existing_status = existing_task_map[task_id].get('status')
+                        if existing_status in ['sufficient', 'completed']:
+                            updated_task['status'] = existing_status
+                            logger.info(f"[PART2_UPDATE] Task 상태 보존: task_id={task_id}, status={existing_status}")
+                        elif existing_status == 'in_progress' and updated_task.get('status') == 'pending':
+                            # in_progress 상태도 보존 (LLM이 pending으로 바꾸지 않도록)
+                            updated_task['status'] = existing_status
+                    else:
+                        # 새로운 Task는 part와 status 확인
+                        if 'part' not in updated_task:
+                            updated_task['part'] = 2
+                        if 'status' not in updated_task:
+                            updated_task['status'] = 'pending'
+                
                 return other_tasks + updated_part2_tasks
             return current_tasks
         
