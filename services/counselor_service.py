@@ -297,7 +297,8 @@ class CounselorService:
             task_selection = self.task_selector.select_next_task(
                 conversation_history,
                 part_tasks,
-                current_part
+                current_part,
+                current_task_id  # 현재 진행 중인 Task ID 전달
             )
             if task_selection:
                 task_selector_output = task_selection.get('raw_output', '')
