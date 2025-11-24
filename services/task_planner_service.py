@@ -383,8 +383,8 @@ JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 
                 "priority": "high",
                 "title": "상담 내용 요약하기",
                 "description": "오늘 상담에서 다룬 내용을 요약하고 정리",
-                "target": "사용자가 오늘 상담 내용을 이해하고 정리",
-                "completion_criteria": "상담 내용을 요약하고 사용자가 확인/동의/감사/만족 표현을 했을 때 완료",
+                "target": "상담사가 오늘 상담 내용을 이해하고 정리",
+                "completion_criteria": "사용자가 상담사의 말을 이해했을 때 완료",
                 "status": "pending"
             },
             {
