@@ -788,12 +788,16 @@ class CounselorService:
                        f"resistance={user_state.get('resistance_detected')}, "
                        f"circular={user_state.get('circular_conversation')}")
             
-            # Task 업데이트 실행
+            # Task 업데이트 실행 (Part 2 목표 정보 포함)
+            part2_goal = session.get('part2_goal')
+            selected_keywords = session.get('part2_selected_keywords', [])
             updated_tasks = self.task_planner.update_part2_tasks(
                 conversation_history,
                 current_tasks,
                 user_state,
-                should_update=True
+                should_update=True,
+                part2_goal=part2_goal,
+                selected_keywords=selected_keywords
             )
             
             if updated_tasks != current_tasks:

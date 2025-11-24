@@ -258,7 +258,8 @@ JSON 형식으로 반환하세요:
             return "", [], []
     
     def update_part2_tasks(self, conversation_history: List[Dict], current_tasks: List[Dict],
-                          user_state: Dict, should_update: bool) -> List[Dict]:
+                          user_state: Dict, should_update: bool, part2_goal: Optional[str] = None,
+                          selected_keywords: Optional[List[str]] = None) -> List[Dict]:
         """
         Part 2 Task 업데이트 (특정 조건 충족 시)
         
@@ -267,6 +268,8 @@ JSON 형식으로 반환하세요:
             current_tasks: 현재 Task 목록
             user_state: User State Detector 결과
             should_update: 업데이트 필요 여부
+            part2_goal: Part 2 목표 (선택사항)
+            selected_keywords: 선택된 키워드 (선택사항)
             
         Returns:
             업데이트된 Task 목록
@@ -297,10 +300,19 @@ JSON 형식으로 반환하세요:
             for msg in recent_messages
         ])
         
+        # Part 2 목표 정보 추가
+        part2_goal_info = ""
+        if part2_goal:
+            part2_goal_info = f"""
+Part 2 목표: {part2_goal}
+"""
+            if selected_keywords:
+                part2_goal_info += f"선택된 키워드: {', '.join(selected_keywords)}\n"
+        
         prompt = f"""Part 2 Task를 업데이트해야 합니다.
 
 업데이트 이유: {', '.join(update_reasons)}
-
+{part2_goal_info}
 현재 대화:
 {conversation_summary}
 
@@ -317,10 +329,12 @@ JSON 형식으로 반환하세요:
 2. 기존 Task 수정 (필요 시)
 3. 불필요한 Task 제거 (필요 시)
 
-**중요: 기존 Task의 상태(status)를 보존하세요.**
-- 기존 Task ID를 유지하는 경우, 해당 Task의 status(sufficient, completed 등)를 그대로 유지하세요.
-- 새로운 Task만 status: "pending"으로 설정하세요.
-- 기존 Task의 status가 "sufficient" 또는 "completed"인 경우, 이를 반드시 보존하세요.
+**중요:**
+- Part 2 목표가 있으면, 업데이트된 Task들이 해당 목표 달성에 기여하도록 하세요.
+- 기존 Task의 상태(status)를 보존하세요.
+  - 기존 Task ID를 유지하는 경우, 해당 Task의 status(sufficient, completed 등)를 그대로 유지하세요.
+  - 새로운 Task만 status: "pending"으로 설정하세요.
+  - 기존 Task의 status가 "sufficient" 또는 "completed"인 경우, 이를 반드시 보존하세요.
 
 JSON 형식으로 업데이트된 Part 2 Task 목록을 반환하세요. 최대 7개를 유지하세요."""
         
